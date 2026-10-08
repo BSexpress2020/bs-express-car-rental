@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BS Express — หลังบ้านการจอง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--red:#EA1824;--red-dark:#B9121C;--navy:#1B2E4E;--cream:#F6F7F9;--ink:#22262E;--soft:#667085;--line:#E3E6EA;--ok:#3F7D58;--warn:#B5502E}
+*{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font:15px/1.5 Sarabun,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+h1{font:600 20px Kanit,sans-serif;margin:0}button,input,select{font:inherit}
+.wrap{max-width:860px;margin:0 auto;padding:16px}.box{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.btn{border:0;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer;background:var(--red);color:#fff}.btn.g{background:#fff;color:var(--red);border:1.5px solid var(--line)}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.top input{flex:1;min-width:160px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13.5px;cursor:pointer}.chip.on{border-color:var(--red);background:#FFF1F1;color:var(--red-dark);font-weight:600}
+.o{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:10px;overflow:hidden}.hd{display:grid;gap:2px;padding:12px 14px;cursor:pointer}
+.r1{display:flex;justify-content:space-between;gap:8px;align-items:center}.r1 b{font-family:Kanit,sans-serif}.sub{color:var(--soft);font-size:13.5px;display:flex;justify-content:space-between;gap:8px}
+.pill{font-size:12.5px;font-weight:600;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.dt{padding:0 14px 14px;border-top:1px dashed var(--line)}.kv{display:grid;grid-template-columns:110px 1fr;gap:4px 10px;margin:12px 0;font-size:14px}.kv span{color:var(--soft)}.kv b{font-weight:600;white-space:pre-wrap;word-break:break-word}
+.im{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.im a{display:block;text-align:center;font-size:12px;color:var(--soft);text-decoration:none}.im img{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ctl .btn{grid-column:span 1}
+.empty,.msg{text-align:center;color:var(--soft);padding:24px 0}#err{color:var(--warn);min-height:22px}
+</style></head><body>
+<div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
+<input id="pw" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password"><div id="err"></div><button class="btn" style="width:100%" onclick="login()">เข้าสู่ระบบ</button></div></div>
+<div class="wrap" id="app" hidden>
+<div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" onclick="load()">รีเฟรช</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
+<div class="chips" id="chips"></div><div id="list"></div></div>
+<script>
+const API='https://script.google.com/macros/s/AKfycbzuytTqXWU9DrPjjcZwly5UjEnhrZbSybPS5CM0jyHKWDrZxJWQ52LacellhfLKzRQsAw/exec';
+// ===== ส่งออกตามแม่แบบ Quickwin (BSOrderTemplate.xlsx) : หัวคอลัมน์ A→AG เรียงตามคู่มือ =====
+const QW_HEAD=['OrderNo','OrderType','BranchCode','OrderDate','ItemDesc','PackagingUnit','Weight','Price','QTY','TotalAmt','CODAmt','OrderRemark','TrackingNo','SndFirstName','SndAddrNo','SndAddTumbon','SndAddrAmphoe','SndAddrProvince','SndPostCode','SndCountry','SndTel','SndTaxID','DestFirstName','DestAddrNo','DestAddTumbon','DestAddrAmphoe','DestAddrProvince','DestPostCode','DestCountry','DestTel','DestTaxID','ExtRefID','SalesPersonID'];
+// ช่องที่คู่มือบอกว่า "ต้องใส่" (O ที่อยู่ผู้ส่งใส่หรือไม่ก็ได้) — ถ้าว่างจะเตือนหลังส่งออก
+const QW_REQ=['OrderType','BranchCode','OrderDate','ItemDesc','PackagingUnit','Price','QTY','SndFirstName','SndAddTumbon','SndAddrAmphoe','SndAddrProvince','SndPostCode','SndCountry','SndTel','DestFirstName','DestAddrNo','DestAddTumbon','DestAddrAmphoe','DestAddrProvince','DestPostCode','DestCountry','DestTel','ExtRefID'];
+const QW_ITEM='พัสดุ',QW_UNIT='ชิ้น'; // E ItemDesc / F PackagingUnit (ฟอร์มจองไม่ได้เก็บชนิดสินค้า)
+const BKK='กรุงเทพมหานคร',PROV_FIX={'กรุงเทพ':BKK,'กรุงเทพฯ':BKK,'กทม':BKK,'กทม.':BKK};
+// "ชื่อ • เบอร์" -> [ชื่อ, เบอร์]
+function pNP(s){s=String(s||'');const i=s.lastIndexOf('•');return i<0?[s.trim(),'']:[s.slice(0,i).trim(),s.slice(i+1).trim()]}
+// แยกที่อยู่ที่ฟอร์มรวมไว้ ("เลขที่ ต.x อ.y จ.z 12345" หรือ "เลขที่ แขวงx y กรุงเทพมหานคร 12345")
+function pAddr(s){
+  s=' '+String(s||'').trim();if(!s.trim())return{no:'',sub:'',dist:'',prov:'',zip:''};
+  let m=s.match(/^([\s\S]*)\sแขวง(\S+)\s(\S+)\sกรุงเทพมหานคร(?:\s(\d{5}))?$/);
+  if(m)return{no:m[1].trim(),sub:m[2],dist:m[3],prov:BKK,zip:m[4]||''};
+  m=s.match(/^([\s\S]*)\sต\.(.+?)\sอ\.(.+?)\sจ\.(.+?)(?:\s(\d{5}))?$/);
+  if(m){const p=m[4].trim();return{no:m[1].trim(),sub:m[2],dist:m[3],prov:PROV_FIX[p]||p,zip:m[5]||''}}
+  return{no:s.trim(),sub:'',dist:'',prov:'',zip:''}; // แยกไม่ได้ -> ใส่ทั้งหมดไว้ที่ AddrNo ให้เจ้าหน้าที่แก้เอง
+}
+// ใช้ฟิลด์ที่อยู่แยกช่องจากฟอร์ม (pickupNo/Sub/Dist/Prov/Zip, rcv…) ถ้าไม่มี (ออเดอร์เก่า) ค่อยแกะจากข้อความรวม
+function qwAddr(o,pre,fb){const z=k=>String(o[pre+k]==null?'':o[pre+k]).trim(),p=z('Prov');return p?{no:z('No'),sub:z('Sub'),dist:z('Dist'),prov:PROV_FIX[p]||p,zip:z('Zip')}:pAddr(fb)}
+function qwRow(o,br,date){
+  const [n1,t1]=pNP(o.sender),[n2,t2]=pNP(o.receiver),sn=o.sndName||n1,sp=o.sndTel||t1,rn=o.rcvName||n2,rp=o.rcvTel||t2,
+    a=qwAddr(o,'pickup',o.pickupAddress),b=qwAddr(o,'rcv',o.receiverAddress),ph=v=>String(v||'').replace(/[\s-]/g,'');
+  return{OrderType:/ปลายทาง|COD/i.test(o.payment||'')?'SO2':'SO1',BranchCode:br,OrderDate:date,ItemDesc:QW_ITEM,PackagingUnit:QW_UNIT,Price:o.total||'',QTY:1,
+    SndFirstName:sn,SndAddrNo:a.no,SndAddTumbon:a.sub,SndAddrAmphoe:a.dist,SndAddrProvince:a.prov,SndPostCode:a.zip,SndCountry:'THAILAND',SndTel:ph(sp||o.pickupPhone),
+    DestFirstName:rn,DestAddrNo:b.no,DestAddTumbon:b.sub,DestAddrAmphoe:b.dist,DestAddrProvince:b.prov,DestPostCode:b.zip,DestCountry:'THAILAND',DestTel:ph(rp),ExtRefID:o.ref};
+}
+const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'รอตรวจสลิป':['#9A6B00','#FFF4D6'],'ชำระแล้ว':['#1D5FBF','#E6F0FD'],'พร้อมเข้ารับ':['#1D5FBF','#E6F0FD'],'รับพัสดุแล้ว':['#1D5FBF','#E6F0FD'],'ออกบิลแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
+let T=sessionStorage.getItem('bsa')||'',D=[],ST=[],F='all',OPEN={};
+const $=id=>document.getElementById(id),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const when=d=>{const t=new Date(d);return isNaN(t)?'':t.toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})};
+async function api(o){const r=await fetch(API,{method:'POST',body:JSON.stringify(Object.assign({token:T},o))});return r.json()}
+async function login(){T=$('pw').value.trim();$('err').textContent='';await load(1)}
+function logout(){T='';sessionStorage.removeItem('bsa');location.reload()}
+async function load(first){
+  try{const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;render()}
+  catch(e){T='';sessionStorage.removeItem('bsa');$('login').hidden=false;$('app').hidden=true;if(first)$('err').textContent=e.message==='unauthorized'?'รหัสผ่านไม่ถูกต้อง':'เชื่อมต่อไม่ได้ ('+e.message+')'}
+}
+function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||o.status===F)&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
+function imgs(u,l){return String(u||'').split('\n').filter(Boolean).map((x,i)=>{const m=/\/d\/([^/]+)/.exec(x);return m?'<a href="'+esc(x)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w300" alt="">'+l+(i?i+1:'')+'</a>':''}).join('')}
+function card(o){
+  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['หมายเหตุ',o.note]].filter(r=>r[1]);
+  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
+  '<div class="dt" '+(OPEN[o.ref]?'':'hidden')+'><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div>'+
+  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+
+  '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล" value="'+esc(o.bill)+'">'+
+  '<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
+}
+function render(){
+  $('chips').innerHTML=['all'].concat(ST).map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
+  const a=shown();$('list').innerHTML=a.length?a.map(card).join(''):'<p class="empty">ไม่มีออเดอร์</p>';
+}
+document.addEventListener('click',async e=>{
+  const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]');
+  if(f){F=f.dataset.f;render()}
+  else if(sv){const r=sv.dataset.save,s=document.querySelector('[data-s="'+r+'"]').value,b=document.querySelector('[data-b="'+r+'"]').value.trim();
+    sv.disabled=true;sv.textContent='กำลังบันทึก...';
+    try{const j=await api({action:'update',ref:r,status:s,bill:b});if(!j.ok)throw new Error(j.error);const o=D.find(x=>x.ref===r);o.status=s;o.bill=b;OPEN[r]=1;render()}
+    catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);sv.disabled=false;sv.textContent='บันทึก'}}
+  else if(cp){const o=D.find(x=>x.ref===cp.dataset.copy);navigator.clipboard.writeText(o.text||'').then(()=>{cp.textContent='คัดลอกแล้ว ✓'})}
+  else if(h&&!t.closest('input,select,button')){const r=h.dataset.t;OPEN[r]=!OPEN[r];h.nextElementSibling.hidden=!OPEN[r]}
+});
+$('q').addEventListener('input',render);
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+function csv(){
+  let br='';try{br=localStorage.getItem('bsbr')||''}catch(e){}
+  br=(prompt('รหัสสาขา (BranchCode) เช่น DC0007',br)||'').trim();if(!br)return;
+  try{localStorage.setItem('bsbr',br)}catch(e){}
+  const skip=['ยกเลิก','ออกบิลแล้ว'],all=shown(),a=all.filter(o=>F===o.status||!skip.includes(o.status));
+  if(!a.length){alert('ไม่มีออเดอร์ให้ส่งออก');return}
+  const d=new Date(),dt=[String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('.'),bad=[];
+  const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"',cell=(k,v)=>(k==='SndTel'||k==='DestTel')&&/^\d{6,}$/.test(v)?'="'+v+'"':q(v); // ="..." กัน Excel ตัดเลข 0 หน้าเบอร์
+  const rows=a.map(o=>{const r=qwRow(o,br,dt),m=QW_REQ.filter(k=>!String(r[k]==null?'':r[k]).trim());if(m.length)bad.push(o.ref+' : '+m.join(', '));return QW_HEAD.map(k=>cell(k,r[k]==null?'':String(r[k]).trim())).join(',')});
+  const b=new Blob(['\ufeff'+[QW_HEAD.map(q).join(',')].concat(rows).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='quickwin-'+new Date().toISOString().slice(0,10)+'.csv';l.click();
+  const sk=all.length-a.length;
+  if(bad.length||sk)setTimeout(()=>alert('ส่งออก '+a.length+' ออเดอร์'+(sk?'\n(ข้าม '+sk+' รายการที่ยกเลิก/ออกบิลแล้ว)':'')+(bad.length?'\n\nข้อมูลยังไม่ครบ ต้องเติมในไฟล์ก่อนอัพโหลด:\n'+bad.slice(0,10).join('\n')+(bad.length>10?'\n...อีก '+(bad.length-10)+' ออเดอร์':''):'')),300);
+}
+if(T)load();
+</script></body></html>
