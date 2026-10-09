@@ -20,6 +20,7 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 .im{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.im a{display:block;text-align:center;font-size:12px;color:var(--soft);text-decoration:none}.im img{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
 .ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ctl .btn{grid-column:span 1}
 .empty,.msg{text-align:center;color:var(--soft);padding:24px 0}#err{color:var(--warn);min-height:22px}
+.sc{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}.sc label{display:flex;gap:6px;align-items:center}.sc input{width:auto;padding:0}.bi{grid-column:1/-1;font-size:13.5px;color:var(--soft)}
 </style></head><body>
 <div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
 <input id="pw" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password"><div id="err"></div><button class="btn" style="width:100%" onclick="login()">เข้าสู่ระบบ</button></div></div>
@@ -54,7 +55,11 @@ function qwRow(o,br,date){
     SndFirstName:sn,SndAddrNo:a.no,SndAddTumbon:a.sub,SndAddrAmphoe:a.dist,SndAddrProvince:a.prov,SndPostCode:a.zip,SndCountry:'THAILAND',SndTel:ph(sp||o.pickupPhone),
     DestFirstName:rn,DestAddrNo:b.no,DestAddTumbon:b.sub,DestAddrAmphoe:b.dist,DestAddrProvince:b.prov,DestPostCode:b.zip,DestCountry:'THAILAND',DestTel:ph(rp),ExtRefID:o.ref};
 }
-const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'รอตรวจสลิป':['#9A6B00','#FFF4D6'],'ชำระแล้ว':['#1D5FBF','#E6F0FD'],'พร้อมเข้ารับ':['#1D5FBF','#E6F0FD'],'รับพัสดุแล้ว':['#1D5FBF','#E6F0FD'],'ออกบิลแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
+const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'ยืนยันแล้ว · รอเลขบิล':['#1D5FBF','#E6F0FD'],'รอรถเข้ารับ':['#6B4FBB','#EFEAFB'],'รับพัสดุแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
+const SLIP={'':['สลิปรอตรวจ','#9A6B00','#FFF4D6'],'ผ่าน':['สลิปผ่าน','#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['สลิปไม่ผ่าน','#B5502E','#FDECE7']};
+const BI={};
+const PAID='ชำระแล้ว',UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว)
+function shrink(f,mx=1400){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const k=Math.min(1,mx/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.8))};i.onerror=no;i.src=u})}
 let T=sessionStorage.getItem('bsa')||'',D=[],ST=[],F='all',OPEN={};
 const $=id=>document.getElementById(id),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const when=d=>{const t=new Date(d);return isNaN(t)?'':t.toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})};
@@ -65,29 +70,37 @@ async function load(first){
   try{const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;render()}
   catch(e){T='';sessionStorage.removeItem('bsa');$('login').hidden=false;$('app').hidden=true;if(first)$('err').textContent=e.message==='unauthorized'?'รหัสผ่านไม่ถูกต้อง':'เชื่อมต่อไม่ได้ ('+e.message+')'}
 }
-function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||o.status===F)&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
+function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
 function imgs(u,l){return String(u||'').split('\n').filter(Boolean).map((x,i)=>{const m=/\/d\/([^/]+)/.exec(x);return m?'<a href="'+esc(x)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w300" alt="">'+l+(i?i+1:'')+'</a>':''}).join('')}
 function card(o){
-  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['หมายเหตุ',o.note]].filter(r=>r[1]);
-  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
+  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?['ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['หมายเหตุ',o.note]].filter(r=>r[1]);
+  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
   '<div class="dt" '+(OPEN[o.ref]?'':'hidden')+'><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div>'+
-  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+
+  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ผ่าน</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ผ่าน</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+'> บิลนี้ชำระแล้ว</label></div>')+
   '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล" value="'+esc(o.bill)+'">'+
-  '<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
+  '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
 }
 function render(){
-  $('chips').innerHTML=['all'].concat(ST).map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
+  $('chips').innerHTML=['all'].concat(ST,'unpaid').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
   const a=shown();$('list').innerHTML=a.length?a.map(card).join(''):'<p class="empty">ไม่มีออเดอร์</p>';
 }
 document.addEventListener('click',async e=>{
   const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]');
   if(f){F=f.dataset.f;render()}
-  else if(sv){const r=sv.dataset.save,s=document.querySelector('[data-s="'+r+'"]').value,b=document.querySelector('[data-b="'+r+'"]').value.trim();
+  else if(sv){const r=sv.dataset.save,b=document.querySelector('[data-b="'+r+'"]').value.trim();let s=document.querySelector('[data-s="'+r+'"]').value;if(b&&s===ST[1])s=ST[2]; // ใส่เลขบิลแล้ว เลื่อนเป็น "รอรถเข้ารับ" ให้เอง
+    
     sv.disabled=true;sv.textContent='กำลังบันทึก...';
-    try{const j=await api({action:'update',ref:r,status:s,bill:b});if(!j.ok)throw new Error(j.error);const o=D.find(x=>x.ref===r);o.status=s;o.bill=b;OPEN[r]=1;render()}
+    try{const j=await api({action:'update',ref:r,status:s,bill:b,billImgData:BI[r]||''});if(!j.ok)throw new Error(j.error);const o=D.find(x=>x.ref===r);o.status=s;o.bill=b;if(j.billImg)o.billImg=j.billImg;delete BI[r];OPEN[r]=1;render()}
     catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);sv.disabled=false;sv.textContent='บันทึก'}}
   else if(cp){const o=D.find(x=>x.ref===cp.dataset.copy);navigator.clipboard.writeText(o.text||'').then(()=>{cp.textContent='คัดลอกแล้ว ✓'})}
   else if(h&&!t.closest('input,select,button')){const r=h.dataset.t;OPEN[r]=!OPEN[r];h.nextElementSibling.hidden=!OPEN[r]}
+});
+document.addEventListener('change',async e=>{
+  const t=e.target,r=t.dataset.sc||t.dataset.bi||t.dataset.pd;if(!r)return;const o=D.find(x=>x.ref===r);
+  if(t.dataset.sc){const v=t.checked?t.value:'',pd=v==='ผ่าน'?PAID:undefined;document.querySelectorAll('[data-sc="'+r+'"]').forEach(x=>{if(x!==t)x.checked=false});
+    try{const j=await api({action:'update',ref:r,slipCheck:v,paid:pd});if(!j.ok)throw new Error(j.error);o.slipCheck=v;if(pd)o.paid=pd;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
+  else if(t.dataset.pd){const v=t.checked?PAID:'';try{const j=await api({action:'update',ref:r,paid:v});if(!j.ok)throw new Error(j.error);o.paid=v;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
+  else if(t.files[0]){try{BI[r]=await shrink(t.files[0]);t.parentNode.firstChild.textContent='เลือกรูปบิลแล้ว ✓ กด “บันทึก” เพื่อส่งให้ลูกค้า '}catch(x){alert('อ่านรูปไม่ได้')}}
 });
 $('q').addEventListener('input',render);
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
@@ -95,7 +108,7 @@ function csv(){
   let br='';try{br=localStorage.getItem('bsbr')||''}catch(e){}
   br=(prompt('รหัสสาขา (BranchCode) เช่น DC0007',br)||'').trim();if(!br)return;
   try{localStorage.setItem('bsbr',br)}catch(e){}
-  const skip=['ยกเลิก','ออกบิลแล้ว'],all=shown(),a=all.filter(o=>F===o.status||!skip.includes(o.status));
+  const skip=['ยกเลิก','รอรถเข้ารับ','รับพัสดุแล้ว'],all=shown(),a=all.filter(o=>F===o.status||!skip.includes(o.status));
   if(!a.length){alert('ไม่มีออเดอร์ให้ส่งออก');return}
   const d=new Date(),dt=[String(d.getDate()).padStart(2,'0'),String(d.getMonth()+1).padStart(2,'0'),d.getFullYear()].join('.'),bad=[];
   const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"',cell=(k,v)=>(k==='SndTel'||k==='DestTel')&&/^\d{6,}$/.test(v)?'="'+v+'"':q(v); // ="..." กัน Excel ตัดเลข 0 หน้าเบอร์
@@ -103,7 +116,7 @@ function csv(){
   const b=new Blob(['\ufeff'+[QW_HEAD.map(q).join(',')].concat(rows).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='quickwin-'+new Date().toISOString().slice(0,10)+'.csv';l.click();
   const sk=all.length-a.length;
-  if(bad.length||sk)setTimeout(()=>alert('ส่งออก '+a.length+' ออเดอร์'+(sk?'\n(ข้าม '+sk+' รายการที่ยกเลิก/ออกบิลแล้ว)':'')+(bad.length?'\n\nข้อมูลยังไม่ครบ ต้องเติมในไฟล์ก่อนอัพโหลด:\n'+bad.slice(0,10).join('\n')+(bad.length>10?'\n...อีก '+(bad.length-10)+' ออเดอร์':''):'')),300);
+  if(bad.length||sk)setTimeout(()=>alert('ส่งออก '+a.length+' ออเดอร์'+(sk?'\n(ข้าม '+sk+' รายการที่ยกเลิก/มีบิลแล้ว)':'')+(bad.length?'\n\nข้อมูลยังไม่ครบ ต้องเติมในไฟล์ก่อนอัพโหลด:\n'+bad.slice(0,10).join('\n')+(bad.length>10?'\n...อีก '+(bad.length-10)+' ออเดอร์':''):'')),300);
 }
 if(T)load();
 </script></body></html>

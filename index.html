@@ -328,6 +328,8 @@
   .hc-to{margin:6px 0 2px;font-size:14px}
   .hc-meta{display:flex;justify-content:space-between;align-items:baseline;color:var(--ink-soft);font-size:13px}.hc-meta b{color:var(--ink);font:600 15px Kanit,sans-serif}
   .hc-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px}.hc-bar i{height:4px;border-radius:2px;background:#E8EBEF}.hc-bar i.on{background:var(--c)}
+.hc-k{display:block;font-size:12px;color:var(--ink-soft);font-weight:400}.hc-meta em{font-style:normal}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#EEF0F3;border-radius:12px;padding:4px;margin:10px 0 14px}.seg button{border:0;background:none;color:var(--ink-soft);border-radius:9px;padding:9px 6px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:none}.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,24,40,.12)}
 .rcv{margin:0 0 14px}.rcv-t{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px}
 .rcv-l{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
 .rcv-it{flex:none;max-width:220px;text-align:left;background:#fff;color:var(--ink);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit;cursor:pointer;box-shadow:none}
@@ -649,13 +651,13 @@ select,select:disabled{-webkit-appearance:none;appearance:none;padding-right:44p
 
   <section class="card step-hidden" id="histCard">
     <h2 style="margin:0 0 4px;font-size:18px;">ประวัติการจอง</h2>
-    <p class="step-sub" style="margin-bottom:12px;">เก็บไว้ในเครื่องนี้ แตะรายการเพื่อดูรายละเอียด</p>
+    <div class="seg" id="hSeg"><button type="button" class="on" data-p="local" onclick="hTab('local')">ในเครื่องนี้</button><button type="button" data-p="other" onclick="hTab('other')">จากเครื่องอื่น</button></div>
+    <div id="hLocal"><input type="text" id="hq" placeholder="ค้นหา เลขที่จอง / เลขบิล / ชื่อ" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:10px">
     <div class="hs" id="histStats"></div>
     <div class="htbl"><div class="hhead"><span>เลขที่จอง / วันที่รับ</span><span>ยอด (บาท)</span><span>สถานะ</span></div><div id="histList"></div></div>
     <p class="field-hint" id="histMsg" style="margin:10px 0;"></p>
-    <button type="button" class="btn-primary btn-full" onclick="refreshHist(this)">เช็คสถานะล่าสุด</button>
-    <div class="field" style="margin-top:18px;"><span class="lbl" style="display:block;font-size:13.5px;font-weight:600;margin-bottom:6px;">จองจากเครื่องอื่น? เพิ่มรายการด้วยเลขที่จอง</span>
-      <div class="date-row"><input type="text" id="refInput" placeholder="BK20261005-XXXX" autocomplete="off" maxlength="20"><button type="button" class="btn-ghost" onclick="findRef(this)">ค้นหา</button></div></div>
+    <button type="button" class="btn-primary btn-full" onclick="refreshHist(this)">เช็คสถานะล่าสุด</button></div>
+    <div id="hOther" hidden><p class="step-sub" style="margin-bottom:10px">เคยจองจากเครื่องอื่น? ใส่เบอร์ผู้ส่งที่ใช้จอง จะเห็นทุกการจองของเบอร์นั้น</p><div class="date-row"><input type="text" id="hp" placeholder="เบอร์ผู้ส่ง หรือ เลขที่จอง" autocomplete="off"><button type="button" class="btn-ghost" onclick="searchOther(this)">ค้นหา</button></div><p class="field-hint" id="hCnt" style="margin:10px 0;"></p><div id="otherList"></div></div>
     <div class="nav-row" style="margin-top:14px;">
       <button type="button" class="btn-ghost" onclick="view('home')">หน้าแรก</button>
       <button type="button" class="btn-primary" onclick="startBooking()">จองรถ</button>
@@ -1236,7 +1238,7 @@ function buildPayload(ref){
     total: c.grandTotal || '', payment: g('วิธีชำระเงิน'), sender: g('ผู้ส่ง'), receiver: g('ผู้รับ'),
     receiverAddress: g('ที่อยู่ผู้รับ'), note: g('หมายเหตุ'), text: summaryText(false),
     payKey: document.querySelector('input[name=paymentMethod]:checked').value,
-    slip: (document.querySelector('input[name=paymentMethod]:checked').value === 'prepay' && window.slipData) ? {data: window.slipData} : null,
+    slip: (document.querySelector('input[name=paymentMethod]:checked').value === 'prepay' && window.slipData) ? {data: 'data:image/jpeg;base64,'+window.slipData} : null,
     photos: (window.parcelPhotos||[]),
     // ที่อยู่แยกช่อง (ใช้ออกบิล Quickwin) — ถ้ามาส่งเองที่จุดรับ จะไม่มีที่อยู่ผู้ส่ง
     sndName: f.senderName.value.trim(), sndTel: f.senderPhone.value.trim(),
@@ -1250,7 +1252,7 @@ function buildPayload(ref){
 function showSuccess(mode){
   clearTimeout(_dt); try{localStorage.removeItem(DRAFT_KEY);}catch(e){}
   const T = {
-    sent: ['ส่งการจองถึงร้านแล้ว','ทีมงานจะติดต่อยืนยันกลับตามเบอร์โทรที่คุณกรอก','เก็บเลขที่นี้ไว้อ้างอิงเมื่อสอบถามสถานะการจอง'],
+    sent: ['ส่งการจองถึงร้านแล้ว','ทีมงานจะติดต่อยืนยันกลับตามเบอร์โทรที่คุณกรอก','เลขที่จองใช้อ้างอิงการจอง ส่วนเลขบิลเจ้าหน้าที่จะออกให้ภายหลัง ดูได้ในประวัติการจอง'],
     unconfirmed: ['ยังยืนยันไม่ได้ว่าร้านได้รับการจอง','การเชื่อมต่อมีปัญหา กรุณากดส่งการจองทาง LINE อีกครั้ง หรือคัดลอกข้อความไปส่งให้ร้าน','ถ้าไม่ได้รับข้อความตอบกลับจากร้าน แสดงว่าร้านยังไม่ได้รับออเดอร์ ให้กดปุ่มด้านบนอีกครั้ง'],
     link: ['เหลืออีกขั้นเดียว','การจองจะสมบูรณ์เมื่อคุณ<b>กดส่งข้อความในแชท LINE ของร้าน</b> แล้วร้านจะตอบกลับเพื่อยืนยัน','ถ้าไม่ได้รับข้อความตอบกลับจากร้านใน LINE แสดงว่าข้อความยังไม่ถูกส่ง ให้กดปุ่มด้านบนอีกครั้ง เก็บเลขที่นี้ไว้อ้างอิงเมื่อสอบถามสถานะการจอง']
   }[mode];
@@ -1490,7 +1492,7 @@ function saveHist(ref, mode){
   const f = document.getElementById('bookingForm'), c = window.lastCalc || {};
   const a = getHist().filter(x=>x.ref !== ref);
   const g = l => { const r = (window.lastRows||[]).find(y=>y[0]===l); return r ? unesc(String(r[1]).replace(/<br>/g,', ')) : ''; };
-  a.unshift({ref, t:Date.now(), total:c.grandTotal || 0, to:f.receiverName.value.trim()+' • '+f.receiverProvince.value,
+  a.unshift({ref, t:Date.now(), total:c.grandTotal || 0, sp:f.senderPhone.value.trim(), sl:isPrepay()&&window.slipData?1:0, to:f.receiverName.value.trim()+' • '+f.receiverProvince.value,
     pay:g('วิธีชำระเงิน')+(isPrepay() && window.slipData ? ' (แนบสลิปแล้ว)' : ''), items:g('รายการพัสดุ'), dest:g('โซนปลายทาง'),
     date:f.payerType.value === 'droppoint' ? 'มาส่งเองที่จุดรับ' : f.pickupDate.value,
     st: mode === 'sent' ? 'รอร้านยืนยัน' : 'ยังไม่ยืนยันว่าร้านได้รับ', snap: collectDraft()});
@@ -1498,36 +1500,60 @@ function saveHist(ref, mode){
 }
 let histFilter = 'all';
 function infoOf(x){
-  const t = x.st || '';
+  const t=x.st||'', B='#1D5FBF', L='#E6F0FD';
   if(/ยกเลิก/.test(t)) return {g:'cancel',lv:0,c:'#667085',b:'#EEF0F3'};
-  if(x.bill || /ออกบิล|เสร็จ|ส่งแล้ว/.test(t)) return {g:'done',lv:4,c:'#1F7A4D',b:'#E6F4EC'};
-  if(/รับของแล้ว|รับพัสดุแล้ว/.test(t)) return {g:'active',lv:3,c:'#1D5FBF',b:'#E6F0FD'};
-  if(/ยืนยันแล้ว|ชำระแล้ว|พร้อมเข้ารับ|กำลัง/.test(t)) return {g:'active',lv:2,c:'#1D5FBF',b:'#E6F0FD'};
+  if(/รับพัสดุแล้ว|รับของแล้ว|ออกบิลแล้ว/.test(t)) return {g:'done',lv:4,c:'#1F7A4D',b:'#E6F4EC'};
+  if(/รอรถ|พร้อมเข้ารับ/.test(t)) return {g:'active',lv:3,c:B,b:L};
+  if(/ยืนยันแล้ว|ชำระแล้ว/.test(t)) return {g:'active',lv:2,c:B,b:L};
   return {g:'wait',lv:1,c:'#9A6B00',b:'#FFF4D6'};
 }
 function setHistFilter(f){ histFilter = f; renderHist(); }
-function renderHist(){
-  const a=getHist(), cnt=g=>a.filter(x=>infoOf(x).g===g).length;
-  const tabs=[['all','ทั้งหมด',a.length],['wait','รอยืนยัน',cnt('wait')],['active','ดำเนินการ',cnt('active')],['done','เสร็จสิ้น',cnt('done')]];
-  document.getElementById('histStats').innerHTML=tabs.map(c=>'<button type="button" class="'+(histFilter===c[0]?'on':'')+'" data-f="'+c[0]+'" onclick="setHistFilter(this.dataset.f)">'+c[1]+' '+c[2]+'</button>').join('');
-  const list=a.filter(x=>histFilter==='all'||infoOf(x).g===histFilter);
-  document.getElementById('histList').innerHTML=list.length?list.map(x=>{
-    const i=infoOf(x), d=x.date?'รับ '+esc(x.date):'จอง '+esc(new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'short'}));
-    return '<button type="button" class="hc" style="--c:'+i.c+'" data-ref="'+esc(x.ref)+'" onclick="openRow(this.dataset.ref)"><div class="hc-top"><b>'+esc(x.ref)+'</b><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
-      (x.to?'<div class="hc-to">ถึง '+esc(x.to)+'</div>':'')+'<div class="hc-meta"><span>'+d+'</span><b>'+(x.total?Number(x.total).toLocaleString()+' บาท':'-')+'</b></div>'+
-      '<div class="hc-bar">'+[1,2,3,4].map(k=>'<i'+(k<=i.lv?' on':'')+'></i>').join('')+'</div></button>';
-  }).join(''):'<div class="h-empty">'+(a.length?'ไม่มีรายการในกลุ่มนี้':'ยังไม่มีการจองในเครื่องนี้<br>จองครั้งแรกแล้วจะเห็นรายการและสถานะที่นี่')+'</div>';
+let histPhone = null;   // ผลค้นหาจากระบบด้วยเบอร์ {phone, rows}
+const TRACK_URL = '';   // ใส่ลิงก์เว็บหลักสำหรับติดตามพัสดุหลังรับของ
+const digits = s => String(s||'').replace(/\D/g,'');
+const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:o.paid?1:0, to:o.receiver||'', date:o.pickupDate||'', dest:o.dest||'', pay:o.payment||''});
+function findH(ref){ return ((histPhone&&histPhone.rows)||[]).concat(getHist()).find(h=>h.ref===ref); }
+// สลิป = สถานะแยกจากขั้นตอนรับพัสดุ
+function slipInfo(x){ return !x.sl||(x.sc==='ผ่าน'&&x.pd)?null : x.sc==='ผ่าน'?['สลิปผ่านแล้ว ✓','#1F7A4D','#E6F4EC'] : x.sc==='ไม่ผ่าน'?['สลิปไม่ผ่าน','#B5502E','#FDECE7'] : ['สลิปรอร้านตรวจ','#9A6B00','#FFF4D6']; }
+// บิลนี้ชำระแล้ว / ยังไม่ชำระ (แสดงเมื่อมีเลขบิลแล้ว)
+function payInfo(x){ return x.pd?['ชำระแล้ว ✓','#1F7A4D','#E6F4EC']:x.bill?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null; }
+function hRow(x){
+  const i=infoOf(x), s=slipInfo(x), d=x.date?'รับ '+esc(x.date):'จอง '+esc(new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'short'}));
+  return '<button type="button" class="hc" style="--c:'+i.c+'" data-ref="'+esc(x.ref)+'" onclick="openRow(this.dataset.ref)"><div class="hc-top"><span><small class="hc-k">เลขที่จอง</small><b>'+esc(x.ref)+'</b></span><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
+    (x.to?'<div class="hc-to">ถึง '+esc(x.to)+'</div>':'')+'<div class="hc-meta"><span>'+d+'</span><b>'+(x.total?Number(x.total).toLocaleString()+' บาท':'-')+'</b></div>'+
+    (i.g==='cancel'?'':'<div class="hc-meta" style="margin-top:4px"><span>เลขบิล '+(x.bill?'<b style="font-size:14px">'+esc(x.bill)+'</b>':'<em>รอเจ้าหน้าที่ออกให้</em>')+'</span>'+'<span>'+[s,payInfo(x)].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+';margin-left:4px">'+p[0]+'</span>':'').join('')+'</span></div>')+
+    '<div class="hc-bar">'+[1,2,3,4].map(k=>'<i'+(k<=i.lv?' on':'')+'></i>').join('')+'</div></button>';
 }
+function renderHist(){   // เฉพาะรายการในเครื่องนี้
+  const q=document.getElementById('hq').value.trim().toLowerCase(), base=getHist().sort((a,b)=>b.t-a.t), cnt=g=>base.filter(x=>infoOf(x).g===g).length;
+  const tabs=[['all','ทั้งหมด',base.length],['wait','รอร้านยืนยัน',cnt('wait')],['active','รอรับพัสดุ',cnt('active')],['done','รับพัสดุแล้ว',cnt('done')]];
+  document.getElementById('histStats').innerHTML=tabs.map(c=>'<button type="button" class="'+(histFilter===c[0]?'on':'')+'" data-f="'+c[0]+'" onclick="setHistFilter(this.dataset.f)">'+c[1]+' '+c[2]+'</button>').join('');
+  const list=base.filter(x=>(histFilter==='all'||infoOf(x).g===histFilter)&&(!q||[x.ref,x.bill,x.sp,x.to].join(' ').toLowerCase().includes(q)));
+  document.getElementById('histList').innerHTML=list.length?list.map(hRow).join(''):'<div class="h-empty">'+(base.length?'ไม่พบรายการที่ค้นหา':'ยังไม่มีการจองในเครื่องนี้<br>เคยจองจากเครื่องอื่น? แตะ “จากเครื่องอื่น” แล้วค้นด้วยเบอร์ผู้ส่ง')+'</div>';
+}
+function hTab(p){
+  document.getElementById('hLocal').hidden = p !== 'local'; document.getElementById('hOther').hidden = p !== 'other';
+  document.querySelectorAll('#hSeg button').forEach(b=>b.classList.toggle('on', b.dataset.p === p));
+}
+function renderOther(msg){   // ผลค้นหาจากระบบ (ไม่ปนกับรายการในเครื่อง)
+  const P = histPhone, rows = P ? P.rows.slice().sort((a,b)=>b.t-a.t) : [];
+  document.getElementById('hCnt').innerHTML = msg || (P && rows.length ? (P.ref ? 'พบการจอง '+rows.length+' รายการ' : 'เบอร์ '+esc(P.phone)+' <b>เคยทำการจองผ่านระบบ '+rows.length+' รายการ</b> (ล่าสุดอยู่บน)') : '');
+  document.getElementById('otherList').innerHTML = P && !rows.length ? '<div class="h-empty">'+(P.ref ? 'ไม่พบเลขที่จองนี้ ตรวจตัวอักษรอีกครั้ง' : 'ไม่พบการจองจากเบอร์นี้')+'</div>' : rows.map(hRow).join('');
+}
+function keepRow(ref){ const x = findH(ref); if(!x) return; putHist([x].concat(getHist().filter(h=>h.ref !== ref))); closeRow(); renderHist(); hTab('local'); document.getElementById('histMsg').textContent = 'เก็บไว้ในเครื่องนี้แล้ว'; }
 function openRow(ref){
-  const x=getHist().find(h=>h.ref===ref); if(!x) return;
-  const i=infoOf(x), R=esc(x.ref); let d=''; try{ d=new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}); }catch(e){}
-  const kv=[['วันที่จอง',d],['วันที่รับ',x.date],['ยอดประมาณการ',x.total?Number(x.total).toLocaleString()+' บาท':''],['ชำระเงิน',x.pay],['ผู้รับ',x.to],['พัสดุ',x.items],['ปลายทาง',x.dest],['เลขบิล',x.bill]].filter(r=>r[1]);
-  const steps=['ส่งการจองแล้ว','ร้านยืนยันการจอง','รถรับพัสดุแล้ว','ออกบิลแล้ว'];
+  const x=findH(ref); if(!x) return;
+  const i=infoOf(x), R=esc(x.ref), s=slipInfo(x), m=/\/d\/([^/]+)/.exec(x.bi||''); let d=''; try{ d=new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}); }catch(e){}
+  const kv=[['วันที่จอง',d],['วันที่รับ',x.date],['ยอดประมาณการ',x.total?Number(x.total).toLocaleString()+' บาท':''],['ชำระเงิน',x.pay],['ผู้รับ',x.to],['พัสดุ',x.items],['ปลายทาง',x.dest]].filter(r=>r[1]);
+  const steps=['ส่งการจองแล้ว','ร้านยืนยันการจอง','รอรถเข้ารับพัสดุ','รับพัสดุแล้ว'];
   document.getElementById('hDr').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h2 style="margin:0;font-size:18px;">'+R+'</h2><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
     '<div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b style="font-weight:600">'+esc(r[1])+'</b>').join('')+'</div>'+
+    (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ทักไลน์ร้านเพื่อส่งสลิปใหม่':'')+'</p>':'')+
+    (i.g==='cancel'?'':'<div class="pay-status" style="background:#F6F7F9"><small>เลขที่จอง ('+R+') ใช้อ้างอิงการจองเท่านั้น ส่วนเลขบิลเจ้าหน้าที่จะออกให้หลังร้านยืนยัน</small><br>เลขบิล: '+(x.bill?'<b>'+esc(x.bill)+'</b> <button type="button" class="copy-btn" data-b="'+esc(x.bill)+'" onclick="copyText(this,this.dataset.b)">คัดลอก</button>':'<b>รอเจ้าหน้าที่ออกเลขบิล</b>')+(x.pd?'<br>การชำระเงิน: <b style="color:#1F7A4D">บิลนี้ชำระแล้ว ✓</b>':x.bill?'<br>การชำระเงิน: <b style="color:#9A6B00">บิลนี้ยังไม่ได้ชำระ</b>'+(x.sl||i.g==='done'?'':'<br><small>ชำระกับคนรถได้ตามปกติ หรือถ้าอยากโอนเข้าบัญชีบริษัทแทน ทักไลน์ร้านก่อนรถเข้ารับ</small>'):'')+'</div>')+
+    (m?'<a href="'+esc(x.bi)+'" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:13px"><img src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w400" alt="" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"><br>เปิดรูปบิล</a>':'')+
     (i.g==='cancel'?'<p style="color:var(--warn);font-size:13.5px;">การจองนี้ถูกยกเลิก</p>':steps.map((t,k)=>'<div class="stp'+(k<i.lv?' on':'')+'"><span></span>'+t+'</div>').join(''))+
-    (x.snap?'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="rebookFrom(this.dataset.ref)">จองซ้ำ (ใช้ข้อมูลเดิม)</button>':'')+
+    (i.g==='done'?'<p class="pay-status">พัสดุอยู่ในขั้นตอนขนส่งแล้ว ติดตามต่อที่เว็บหลักด้วยเลขบิลของคุณ</p>'+(TRACK_URL?'<button type="button" class="btn-primary btn-full" style="margin-top:8px" onclick="window.open(TRACK_URL)">ไปติดตามพัสดุที่เว็บหลัก</button>':''):'')+(getHist().some(h=>h.ref===x.ref)?'':'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="keepRow(this.dataset.ref)">เก็บไว้ในเครื่องนี้</button>')+(x.snap?'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="rebookFrom(this.dataset.ref)">จองซ้ำ (ใช้ข้อมูลเดิม)</button>':'')+
     '<div class="nav-row" style="margin-top:10px"><button type="button" class="btn-ghost" data-ref="'+R+'" onclick="copyText(this,this.dataset.ref)">คัดลอกเลขที่จอง</button><button type="button" class="btn-ghost" onclick="chatLine()">ทักไลน์ร้าน</button></div>'+
     '<div class="nav-row"><button type="button" class="btn-ghost" onclick="closeRow()">ปิด</button><button type="button" class="btn-ghost" style="color:var(--warn)" data-ref="'+R+'" onclick="delRow(this.dataset.ref)">ลบออกจากเครื่องนี้</button></div>';
   document.getElementById('hOv').classList.add('on');
@@ -1546,27 +1572,29 @@ async function refreshHist(btn){
   if(!a.length){ msg.textContent = 'ยังไม่มีรายการให้เช็ค'; return; }
   btn.disabled = true; btn.textContent = 'กำลังเช็ค...'; msg.textContent = '';
   let ok = 0;
-  for(const x of a.slice(0,10)){
+  for(const x of a.slice(0,10)){ if(infoOf(x).g==='cancel'||(infoOf(x).g==='done'&&(x.pd||!x.bill))) continue;
     const j = await fetchStatus(x.ref);
-    if(j && j.found){ x.st = j.status || x.st; x.bill = j.bill || ''; if(j.total) x.total = j.total; ok++; }
+    if(j && j.found){ x.st = j.status || x.st; x.bill = j.bill || ''; x.bi = j.billImg || ''; x.sc = j.slipCheck || ''; if(j.hasSlip) x.sl = 1; x.pd = j.paid ? 1 : 0; if(j.total) x.total = j.total; ok++; }
   }
   putHist(a); renderHist();
   msg.textContent = ok ? 'อัปเดตสถานะแล้ว '+ok+' รายการ' : 'ยังเช็คสถานะอัตโนมัติไม่ได้ ทักไลน์ร้านพร้อมแจ้งเลขที่จองได้เลย';
   btn.disabled = false; btn.textContent = old;
 }
-async function findRef(btn){
-  const inp = document.getElementById('refInput'), msg = document.getElementById('histMsg'), v = inp.value.trim().toUpperCase();
+async function searchOther(btn){
+  const v = document.getElementById('hp').value.trim(), ph = digits(v), ref = ph.length < 9;
   if(!v) return;
-  btn.disabled = true; msg.textContent = 'กำลังค้นหา...';
-  const j = await fetchStatus(v);
-  btn.disabled = false;
-  if(j && j.found){
-    const a = getHist().filter(x=>x.ref !== v);
-    a.unshift({ref:v, t:Date.now(), total:j.total || 0, st:j.status || 'รอร้านยืนยัน', bill:j.bill || ''});
-    putHist(a); renderHist(); inp.value = ''; msg.textContent = 'เพิ่มรายการแล้ว';
-  } else msg.textContent = j ? 'ไม่พบเลขที่จองนี้ ตรวจตัวอักษรอีกครั้ง' : 'ค้นหาไม่ได้ในตอนนี้ ลองใหม่ หรือทักไลน์ร้าน';
+  btn.disabled = true; histPhone = null; renderOther('กำลังค้นหา...');
+  let msg = '';
+  try{
+    let rows;
+    if(!ref){ const j = await (await fetch(WEBHOOK_URL+'?action=phone&phone='+ph)).json(); if(!j.ok) throw 0; rows = (j.orders||[]).map(mapRow); }   // เบอร์ผู้ส่ง: ทุกการจองของเบอร์นี้
+    else { const j = await fetchStatus(v.toUpperCase()); if(!j) throw 0; rows = j.found ? [mapRow(Object.assign({ref:v.toUpperCase()},j))] : []; }   // เลขที่จอง
+    histPhone = {phone:v, rows, ref};
+  }catch(e){ histPhone = null; msg = 'ค้นหาไม่ได้ในตอนนี้ ลองใหม่ หรือทักไลน์ร้าน'; }
+  btn.disabled = false; renderOther(msg);
 }
-document.getElementById('refInput').addEventListener('keydown', e=>{ if(e.key === 'Enter') findRef(e.target.nextElementSibling); });
+document.getElementById('hq').addEventListener('input', renderHist);
+document.getElementById('hp').addEventListener('keydown', e=>{ if(e.key === 'Enter') searchOther(e.target.nextElementSibling); });
 
 
 // ===== ปรับปรุงการใช้งาน =====
