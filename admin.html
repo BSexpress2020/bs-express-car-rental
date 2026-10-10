@@ -25,8 +25,8 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 <div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
 <input id="pw" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password"><div id="err"></div><button class="btn" style="width:100%" onclick="login()">เข้าสู่ระบบ</button></div></div>
 <div class="wrap" id="app" hidden>
-<div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" onclick="load()">รีเฟรช</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
-<div class="chips" id="chips"></div><div id="list"></div></div>
+<div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" id="rf" onclick="loadOrders()">รีเฟรช</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
+<div id="ts" style="color:var(--soft);font-size:13px;margin:-4px 0 8px"></div><div class="box" id="warn" hidden style="margin-bottom:12px;color:var(--warn);background:#FFF4EE"></div><div class="chips" id="chips"></div><div id="list"></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzuytTqXWU9DrPjjcZwly5UjEnhrZbSybPS5CM0jyHKWDrZxJWQ52LacellhfLKzRQsAw/exec';
 // ===== ส่งออกตามแม่แบบ Quickwin (BSOrderTemplate.xlsx) : หัวคอลัมน์ A→AG เรียงตามคู่มือ =====
@@ -56,19 +56,49 @@ function qwRow(o,br,date){
     DestFirstName:rn,DestAddrNo:b.no,DestAddTumbon:b.sub,DestAddrAmphoe:b.dist,DestAddrProvince:b.prov,DestPostCode:b.zip,DestCountry:'THAILAND',DestTel:ph(rp),ExtRefID:o.ref};
 }
 const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'ยืนยันแล้ว · รอเลขบิล':['#1D5FBF','#E6F0FD'],'รอรถเข้ารับ':['#6B4FBB','#EFEAFB'],'รับพัสดุแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
-const SLIP={'':['สลิปรอตรวจ','#9A6B00','#FFF4D6'],'ผ่าน':['สลิปผ่าน','#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['สลิปไม่ผ่าน','#B5502E','#FDECE7']};
+const SLIP={'':['สลิปรอตรวจ','#9A6B00','#FFF4D6'],'ผ่าน':['สลิปถูกต้อง','#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['สลิปไม่ถูกต้อง','#B5502E','#FDECE7']};
 const BI={};
 const PAID='ชำระแล้ว',UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว)
 function shrink(f,mx=1400){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const k=Math.min(1,mx/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.8))};i.onerror=no;i.src=u})}
+// ===== อ่านเลขพัสดุจากรูปบิล (Tesseract.js โหลดเมื่อเลือกรูปครั้งแรก) =====
+let OCRW;
+function loadScript(src){return new Promise((ok,no)=>{if(window.Tesseract)return ok();const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('โหลดตัวอ่านเลขไม่ได้'));document.head.appendChild(s)})}
+async function ocrCanvas(f){ // ขยายรูปก่อนอ่าน: รูปเล็กอ่าน 0 เป็น O ผิดบ่อย (ทดสอบแล้ว ขยาย 3 เท่าอ่านถูก)
+  const u=URL.createObjectURL(f),i=await new Promise((ok,no)=>{const m=new Image();m.onload=()=>ok(m);m.onerror=no;m.src=u}),
+    k=Math.min(3,2400/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');
+  c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);return c}
+// เลขพัสดุ = BS + รหัสสาขา(ตัวอักษร) + ตัวเลขล้วน เช่น BSDPON062769100002 / ส่วนตัวเลขถ้าอ่านเป็นตัวอักษร (O,I,S...) แก้เป็นเลขให้
+function pickTrack(text){
+  const M={O:'0',Q:'0',D:'0',I:'1',L:'1',Z:'2',S:'5',G:'6',B:'8'},c=[];
+  String(text).toUpperCase().split('\n').forEach(l=>(l.replace(/\s/g,'').match(/BS[A-Z0-9]{12,22}/g)||[]).forEach(t=>{
+    const b=t.slice(2),i=b.search(/\d/);if(i<0)return;const d=b.slice(i).replace(/[A-Z]/g,ch=>M[ch]||ch);
+    if(/^\d{8,}$/.test(d))c.push('BS'+b.slice(0,i)+d)}));
+  return c[0]||''}
+async function readTrack(f){
+  await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+  OCRW=OCRW||Tesseract.createWorker('eng',1,{langPath:'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'});
+  const w=await OCRW,r=await w.recognize(await ocrCanvas(f));return pickTrack(r.data.text)}
 let T=sessionStorage.getItem('bsa')||'',D=[],ST=[],F='all',OPEN={};
 const $=id=>document.getElementById(id),esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const when=d=>{const t=new Date(d);return isNaN(t)?'':t.toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})};
-async function api(o){const r=await fetch(API,{method:'POST',body:JSON.stringify(Object.assign({token:T},o))});return r.json()}
-async function login(){T=$('pw').value.trim();$('err').textContent='';await load(1)}
+async function api(o){const r=await fetch(API,{method:'POST',cache:'no-store',body:JSON.stringify(Object.assign({token:T},o))}),x=await r.text();try{return JSON.parse(x)}catch(e){throw new Error('หลังบ้านตอบกลับผิดรูปแบบ ลองใหม่อีกครั้ง')}}
+async function login(){T=$('pw').value.trim();$('err').textContent='';await loadOrders(1)}
 function logout(){T='';sessionStorage.removeItem('bsa');location.reload()}
-async function load(first){
-  try{const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;render()}
-  catch(e){T='';sessionStorage.removeItem('bsa');$('login').hidden=false;$('app').hidden=true;if(first)$('err').textContent=e.message==='unauthorized'?'รหัสผ่านไม่ถูกต้อง':'เชื่อมต่อไม่ได้ ('+e.message+')'}
+async function loadOrders(first){
+  const rb=$('rf');rb.disabled=true;rb.textContent='กำลังโหลด...';
+  try{
+    const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);
+    const had=new Set(D.map(o=>o.ref)),nw=D.length?j.orders.filter(o=>!had.has(o.ref)).length:0;D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;
+    const old=!ST.includes('รอรถเข้ารับ');$('warn').hidden=!old;
+    if(old)$('warn').textContent='หลังบ้าน (Apps Script) ยังเป็นโค้ดเก่า — ต้อง Deploy → New version ก่อน ไม่งั้นการติ๊กตรวจสลิป/ชำระเงินและรูปบิลจะไม่ถูกบันทึก';
+    render();$('ts').textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH')+' · '+D.length+' ออเดอร์'+(nw?' · ใหม่ '+nw+' รายการ':'');
+  }catch(e){
+    const bad=e.message==='unauthorized';
+    if(bad||first){T='';sessionStorage.removeItem('bsa');$('login').hidden=false;$('app').hidden=true;$('err').textContent=bad?'รหัสผ่านไม่ถูกต้อง':'เชื่อมต่อไม่ได้ ('+e.message+')'}
+    else{$('login').hidden=true;$('app').hidden=false;$('warn').hidden=false;$('warn').textContent='โหลดข้อมูลไม่สำเร็จ ('+e.message+') — กด “รีเฟรช” เพื่อลองใหม่'}   // ไม่เด้งออกจากระบบเงียบ ๆ อีก
+  }
+  rb.disabled=false;rb.textContent='รีเฟรช';
 }
 function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
 function imgs(u,l){return String(u||'').split('\n').filter(Boolean).map((x,i)=>{const m=/\/d\/([^/]+)/.exec(x);return m?'<a href="'+esc(x)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w300" alt="">'+l+(i?i+1:'')+'</a>':''}).join('')}
@@ -76,9 +106,9 @@ function card(o){
   const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?['ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['หมายเหตุ',o.note]].filter(r=>r[1]);
   return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
   '<div class="dt" '+(OPEN[o.ref]?'':'hidden')+'><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div>'+
-  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ผ่าน</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ผ่าน</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+'> บิลนี้ชำระแล้ว</label></div>')+
+  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ถูกต้อง</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ถูกต้อง</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+'> บิลนี้ชำระแล้ว</label></div>')+
   '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล" value="'+esc(o.bill)+'">'+
-  '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
+  '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label><div class="bi" data-m="'+R+'"></div>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
 }
 function render(){
   $('chips').innerHTML=['all'].concat(ST,'unpaid').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
@@ -100,7 +130,13 @@ document.addEventListener('change',async e=>{
   if(t.dataset.sc){const v=t.checked?t.value:'',pd=v==='ผ่าน'?PAID:undefined;document.querySelectorAll('[data-sc="'+r+'"]').forEach(x=>{if(x!==t)x.checked=false});
     try{const j=await api({action:'update',ref:r,slipCheck:v,paid:pd});if(!j.ok)throw new Error(j.error);o.slipCheck=v;if(pd)o.paid=pd;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
   else if(t.dataset.pd){const v=t.checked?PAID:'';try{const j=await api({action:'update',ref:r,paid:v});if(!j.ok)throw new Error(j.error);o.paid=v;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
-  else if(t.files[0]){try{BI[r]=await shrink(t.files[0]);t.parentNode.firstChild.textContent='เลือกรูปบิลแล้ว ✓ กด “บันทึก” เพื่อส่งให้ลูกค้า '}catch(x){alert('อ่านรูปไม่ได้')}}
+  else if(t.files[0]){const f=t.files[0],say=h=>{const m=document.querySelector('[data-m="'+r+'"]');if(m)m.innerHTML=h};
+    try{BI[r]=await shrink(f)}catch(x){alert('อ่านรูปไม่ได้');return}
+    say('เลือกรูปบิลแล้ว ✓ กำลังอ่านเลขพัสดุจากรูป… (ครั้งแรกโหลดตัวอ่านเลขประมาณ 5 MB)');
+    try{const n=await readTrack(f),i=document.querySelector('[data-b="'+r+'"]');
+      if(n&&i){i.value=n;say('อ่านเลขพัสดุได้ <b>'+n+'</b> กรอกในช่องเลขบิลให้แล้ว — ตรวจให้ตรงกับบิลก่อนกด “บันทึก”')}
+      else say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขพัสดุจากรูปไม่ได้ — กรอกเลขเอง แล้วกด “บันทึก”')}
+    catch(x){say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขอัตโนมัติไม่ได้ ('+x.message+') — กรอกเลขเอง แล้วกด “บันทึก”')}}
 });
 $('q').addEventListener('input',render);
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
@@ -118,5 +154,5 @@ function csv(){
   const sk=all.length-a.length;
   if(bad.length||sk)setTimeout(()=>alert('ส่งออก '+a.length+' ออเดอร์'+(sk?'\n(ข้าม '+sk+' รายการที่ยกเลิก/มีบิลแล้ว)':'')+(bad.length?'\n\nข้อมูลยังไม่ครบ ต้องเติมในไฟล์ก่อนอัพโหลด:\n'+bad.slice(0,10).join('\n')+(bad.length>10?'\n...อีก '+(bad.length-10)+' ออเดอร์':''):'')),300);
 }
-if(T)load();
+if(T)loadOrders();
 </script></body></html>
