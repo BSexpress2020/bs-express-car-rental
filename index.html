@@ -273,6 +273,7 @@
 .info{display:block;font-size:13.5px}
 .info summary{cursor:pointer;font-weight:600;font-size:15px}
 .info ul{margin:10px 0 0;padding-left:18px;color:var(--ink-soft)}
+.info ul a.lnk{color:var(--red);font-weight:600;text-underline-offset:2px}
 .h-item{border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
 .h-top{display:flex;justify-content:space-between;gap:10px;align-items:center}
 .h-ref{font:600 15px 'Kanit',sans-serif}
@@ -491,34 +492,42 @@ select,select:disabled{-webkit-appearance:none;appearance:none;padding-right:44p
     <!-- STEP 4: การชำระเงิน -->
     <section class="card step step-hidden" data-step="4">
       <div class="step-title"><span class="step-num">4</span><h2 style="margin:0;font-size:18px;">วิธีชำระเงินและสรุปรายการ</h2></div>
-      <p class="step-sub">เลือกรูปแบบที่สะดวก ยืนยันได้อีกครั้งกับเจ้าหน้าที่</p>
+      <h3 class="sum-title" style="margin:0 0 6px;">ค่าขนส่ง</h3><p class="step-sub">เลือกรูปแบบที่สะดวก ยืนยันได้อีกครั้งกับเจ้าหน้าที่</p>
 
       <div class="choice-grid" id="paymentChoices">
-        <label class="choice" data-value="prepay">
-          <input type="radio" name="paymentMethod" value="prepay">
+        <label class="choice selected" data-value="prepay">
+          <input type="radio" name="paymentMethod" value="prepay" checked>
           <span>
             <span class="c-title">ชำระก่อนเรียกรถ</span>
             <span class="c-desc">โอน/พร้อมเพย์ ก่อนรถออกไปรับพัสดุ</span>
           </span>
         </label>
-        <label class="choice selected" data-value="onpickup">
-          <input type="radio" name="paymentMethod" value="onpickup" checked>
+        <label class="choice" data-value="onpickup">
+          <input type="radio" name="paymentMethod" value="onpickup">
           <span>
             <span class="c-title">ชำระเมื่อรถมารับพัสดุ</span>
-            <span class="c-desc">จ่ายกับพนักงานหน้างานตอนรับของ</span>
+            <span class="c-desc">จ่ายกับพนักงานตอนรับของ หรือโอนเข้าบัญชีบริษัทภายหลังก็ได้</span>
           </span>
         </label>
         <label class="choice" data-value="cod">
           <input type="radio" name="paymentMethod" value="cod">
           <span>
-            <span class="c-title">เก็บเงินปลายทาง (COD)</span>
-            <span class="c-desc">ผู้รับเป็นคนชำระเงินตอนพัสดุไปถึง</span>
+            <span class="c-title">ผู้รับจ่ายค่าขนส่งปลายทาง</span>
+            <span class="c-desc">ผู้รับเป็นคนจ่ายค่าขนส่งตอนพัสดุไปถึง</span>
           </span>
         </label>
       </div>
 
 
-      <label class="field" style="margin-top:16px;">
+      <h3 class="sum-title" style="margin:18px 0 6px;">ค่าพัสดุ (COD)</h3>
+<p class="step-sub">ให้คนส่งเก็บ "เงินค่าสินค้า" จากผู้รับหรือไม่ (เงินค่าของ ไม่ใช่ค่าขนส่ง)</p>
+<div class="choice-grid" id="codChoices">
+<label class="choice selected" data-value="no"><input type="radio" name="codFlag" value="no" checked><span><span class="c-title">ไม่เก็บ COD</span> <span class="c-desc">ผู้รับไม่ต้องจ่ายค่าสินค้า</span></span></label>
+<label class="choice" data-value="yes"><input type="radio" name="codFlag" value="yes"><span><span class="c-title">เก็บ COD</span> <span class="c-desc">ให้คนส่งเก็บเงินค่าสินค้าจากผู้รับ</span></span></label>
+</div>
+<label class="field" id="codBox" style="margin-top:12px;display:none;"><span class="lbl">ยอดที่ให้เก็บจากผู้รับ (บาท)</span><input type="number" name="codAmt" inputmode="decimal" min="1" step="any" placeholder="เช่น 500"></label>
+<p class="error-msg" id="codErr" style="display:none;"></p>
+<label class="field" style="margin-top:16px;">
         <span class="lbl">หมายเหตุถึงทีมงาน (ถ้ามี)</span>
         <textarea name="note" placeholder="เช่น จุดสังเกตหน้าบ้าน เวลาที่สะดวก ชื่อร้านที่ต้องแจ้ง"></textarea>
       </label>
@@ -642,10 +651,10 @@ select,select:disabled{-webkit-appearance:none;appearance:none;padding-right:44p
     <button type="button" class="tile" onclick="chatLine()"><i><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></i><span><b>ทักไลน์ร้าน</b><small>สอบถามราคา หรือเปลี่ยนแปลงนัดรับ</small></span></button>
     <details class="tile info"><summary>ข้อมูลบริการและค่าบริการ</summary><ul>
       <li>รถเข้ารับ 9 จังหวัด: กรุงเทพฯ ปทุมธานี นนทบุรี ชลบุรี สมุทรปราการ สมุทรสาคร สมุทรสงคราม นครปฐม ราชบุรี</li>
-      <li>จองได้ตั้งแต่พรุ่งนี้ ไม่มีบริการเข้ารับวันอาทิตย์</li>
+      <li>จองวันนี้ รถเข้ารับได้ตั้งแต่พรุ่งนี้ ไม่มีบริการเข้ารับวันอาทิตย์</li>
       <li>ค่าเข้ารับฟรีเมื่อส่งตั้งแต่ 3 ชิ้น หรือค่าส่งถึง 200 บาท ถ้าน้อยกว่านั้นคิดขั้นต่ำ 200 บาท</li>
-      <li>นำพัสดุมาส่งเองที่จุดรับ (Drop Point) ไม่ต้องจองล่วงหน้า พนักงานดำเนินการให้ที่หน้าร้าน ไม่มีค่าเข้ารับ</li>
-      <li>ของแตกง่าย ของหนัก ของมูลค่าสูง บวกเพิ่ม 25% ต่อข้อ</li>
+      <li>นำพัสดุมาส่งเองที่จุดรับ (Drop Point) ไม่ต้องจองล่วงหน้า พนักงานดำเนินการให้ที่หน้าร้าน ไม่มีค่าเข้ารับ <a class="lnk" href="https://www.bsgroupth.com/%E0%B8%AA%E0%B8%B2%E0%B8%82%E0%B8%B2-bs-express" target="_blank" rel="noopener">ดูจุดที่มี Drop Point</a></li>
+      <li>ของแตกง่าย ของหนัก ของมูลค่าสูง คิดราคาพิเศษ</li>
     </ul></details>
   </section>
 
@@ -961,7 +970,7 @@ function itemFieldsHTML(c){
   const t=(i,l)=>'<label class="checkline"><input type="checkbox" class="'+c.t[i]+'"> '+l+'</label>';
   return '<div class="row2">'+n('w','น้ำหนัก (กก.)',' step="0.1"')+'<div><span style="display:block;font-size:13.5px;font-weight:600;margin-bottom:6px;">จำนวนชิ้น</span><div class="qp-step"><button type="button" aria-label="ลดจำนวน" onclick="stepQty(this,-1)">−</button><input type="number" inputmode="numeric" min="1" step="1" class="'+c.q+'" value="1"><button type="button" aria-label="เพิ่มจำนวน" onclick="stepQty(this,1)">+</button></div></div></div>'+
     '<div class="row3" style="margin-top:10px;">'+n('a','กว้าง (ซม.)')+n('b','ยาว (ซม.)')+n('c','สูง (ซม.)')+'</div>'+
-    '<div class="item-traits"><span class="lbl">พัสดุพิเศษ (ถ้ามี — คิดเพิ่ม 25% ต่อข้อ)</span>'+t(0,'ของแตกง่าย / เสียหายง่าย')+t(1,'ของหนัก / ยกลำบาก')+t(2,'ของมูลค่าสูง')+'</div>'+
+    '<div class="item-traits"><span class="lbl">พัสดุพิเศษ (ถ้ามี — คิดราคาพิเศษ)</span>'+t(0,'ของแตกง่าย / เสียหายง่าย')+t(1,'ของหนัก / ยกลำบาก')+t(2,'ของมูลค่าสูง')+'</div>'+
     '<div class="item-row-result"></div>';
 }
 function stepQty(b,k){ const i=b.parentNode.querySelector('input'); i.value=Math.max(1,(parseInt(i.value,10)||0)+k); i.dispatchEvent(new Event('input',{bubbles:true})); }
@@ -1043,10 +1052,8 @@ function recalcAll(){
     totalValue += rowSubtotal;
     baseTotal += baseUnit * qty;
     itemsDetail.push({n:idx+1, weight, width:wC, length:lC, height:hC, qty, tier:tier.label, unit:perItemPrice, baseUnit, traitsN, mult});
-    const unitTxt = traitsN
-      ? baseUnit.toLocaleString()+' × '+mult.toFixed(2)+' (พัสดุพิเศษ '+traitsN+' ข้อ) = '+perItemPrice.toLocaleString()
-      : perItemPrice.toLocaleString();
-    resultEl.innerHTML = roundNote+'ขนาดรวม '+wC+' + '+lC+' + '+hC+' = '+sum+' ซม. • ขนาด '+tier.label+' • '+unitTxt+' บาท × '+qty+' = <b>'+rowSubtotal.toLocaleString()+' บาท</b>';
+    const unitTxt = perItemPrice.toLocaleString()+' บาท'+(traitsN ? ' (ราคาพิเศษ)' : '');
+    resultEl.innerHTML = roundNote+'ขนาดรวม '+wC+' + '+lC+' + '+hC+' = '+sum+' ซม. • ขนาด '+tier.label+' • '+unitTxt+' × '+qty+' = <b>'+rowSubtotal.toLocaleString()+' บาท</b>';
   });
 
   window.lastOversize = anyOversize;
@@ -1151,10 +1158,10 @@ function itemTraitsSummary(){
   });
   return out.join('<br>');
 }
-function buildSummary(){
+function buildSummary(){ syncCod();
   const f = document.getElementById('bookingForm');
   const payerLabels = {origin:'เรียกรถไปรับที่บ้าน', droppoint:'มาส่งเองที่จุดรับ'};
-  const paymentLabels = {prepay:'ชำระก่อนเรียกรถ', onpickup:'ชำระเมื่อรถมารับพัสดุ', cod:'เก็บเงินปลายทาง (COD)'};
+  const paymentLabels = {prepay:'ชำระก่อนเรียกรถ', onpickup:'ชำระเมื่อรถมารับพัสดุ', cod:'ผู้รับจ่ายค่าขนส่งปลายทาง'};
   const payer = f.payerType.value;
   const rows = [];
   rows.push(['รูปแบบการจัดส่ง', payerLabels[payer]]);
@@ -1168,12 +1175,13 @@ function buildSummary(){
   if(c){
     rows.push(['โซนปลายทาง', c.dest]);
     if(c.surcharge > 0) rows.push(['ค่าบริการพัสดุพิเศษ (รวมในค่าขนส่งแล้ว)', c.surcharge.toLocaleString()+' บาท']);
-    rows.push(['รายละเอียดพัสดุ', c.itemsDetail.map(it=>it.n+') '+it.weight+' กก. '+it.width+'×'+it.length+'×'+it.height+' ซม. × '+it.qty+' ชิ้น • ไซซ์ '+it.tier+' • '+(it.traitsN ? it.baseUnit.toLocaleString()+' × '+it.mult.toFixed(2)+' (พัสดุพิเศษ '+it.traitsN+' ข้อ) = ' : '')+it.unit.toLocaleString()+' บาท/ชิ้น').join('<br>')]);
+    rows.push(['รายละเอียดพัสดุ', c.itemsDetail.map(it=>it.n+') '+it.weight+' กก. '+it.width+'×'+it.length+'×'+it.height+' ซม. × '+it.qty+' ชิ้น • ไซซ์ '+it.tier+' • '+it.unit.toLocaleString()+' บาท/ชิ้น'+(it.traitsN ? ' (ราคาพิเศษ)' : '')).join('<br>')]);
   }
   const traits = itemTraitsSummary();
   if(traits) rows.push(['ลักษณะพัสดุ', traits]);
   rows.push(['ค่าขนส่งรวม (ประมาณการ)', c ? (c.grandTotal.toLocaleString()+' บาท') : '-']);
   rows.push(['วิธีชำระเงิน', paymentLabels[f.paymentMethod.value]]);
+rows.push(['ค่าพัสดุ (COD)', codOn() ? 'เก็บ COD '+codAmt().toLocaleString()+' บาท' : 'ไม่เก็บ COD']);
   rows.push(['ผู้ส่ง', esc(f.senderName.value)+' • '+esc(f.senderPhone.value)]);
   rows.push(['ผู้รับ', esc(f.receiverName.value)+' • '+esc(f.receiverPhone.value)]);
   window.lastRows = rows;
@@ -1196,6 +1204,15 @@ function generateBookingRef(){
   return 'BK'+ymd+'-'+s;
 }
 
+// ----- ค่าพัสดุ (COD) แยกจากค่าขนส่ง -----
+function codOn(){ return document.querySelector('input[name=codFlag]:checked').value === 'yes'; }
+function codAmt(){ return codOn() ? (parseFloat(document.querySelector('input[name=codAmt]').value) || 0) : 0; }
+function syncCod(){
+  document.querySelectorAll('#codChoices .choice').forEach(c=>c.classList.toggle('selected', c.querySelector('input').checked));
+  document.getElementById('codBox').style.display = codOn() ? '' : 'none';
+}
+document.getElementById('codChoices').addEventListener('change', ()=>{ document.getElementById('codErr').style.display = 'none'; buildSummary(); });
+document.getElementById('codBox').addEventListener('input', ()=>{ document.getElementById('codErr').style.display = 'none'; buildSummary(); });
 document.getElementById('bookingForm').addEventListener('submit', function(e){ e.preventDefault(); });
 async function submitBooking(){
   if(currentStep !== 4 && currentStep !== 6) return;
@@ -1203,7 +1220,8 @@ async function submitBooking(){
   if(currentStep === 4){
     if(!ag.checked){ ae.textContent = 'กรุณาติ๊กรับทราบก่อนกดยืนยันการจอง'; ae.style.display = 'block'; return; }
     ae.style.display = 'none';
-    if(isPrepay()){ try{ goPay(); }catch(err){ ae.textContent = 'เปิดหน้าชำระเงินไม่สำเร็จ ('+err.message+') กรุณาแคปหน้าจอส่งให้ผู้ดูแล'; ae.style.display = 'block'; } return; }
+    if(codOn() && codAmt() <= 0){ const ce = document.getElementById('codErr'); ce.textContent = 'กรุณากรอกยอด COD ที่ให้เก็บจากผู้รับ'; ce.style.display = 'block'; document.querySelector('input[name=codAmt]').focus(); return; }
+if(isPrepay()){ try{ goPay(); }catch(err){ ae.textContent = 'เปิดหน้าชำระเงินไม่สำเร็จ ('+err.message+') กรุณาแคปหน้าจอส่งให้ผู้ดูแล'; ae.style.display = 'block'; } return; }
   } else if(!window.slipData){ document.getElementById('slipErr').textContent = 'กรุณาแนบสลิปก่อนยืนยันการจอง'; return; }
   const btn = document.getElementById(currentStep === 6 ? 'paySubmitBtn' : 'submitBtn');
   if(btn.dataset.busy) return;
@@ -1237,7 +1255,7 @@ function buildPayload(ref){
     dest: g('โซนปลายทาง'), items: g('รายการพัสดุ'), itemsDetail: g('รายละเอียดพัสดุ', '\n'), traits: g('ลักษณะพัสดุ'),
     total: c.grandTotal || '', payment: g('วิธีชำระเงิน'), sender: g('ผู้ส่ง'), receiver: g('ผู้รับ'),
     receiverAddress: g('ที่อยู่ผู้รับ'), note: g('หมายเหตุ'), text: summaryText(false),
-    payKey: document.querySelector('input[name=paymentMethod]:checked').value,
+    payKey: document.querySelector('input[name=paymentMethod]:checked').value, codAmt: codAmt(),
     slip: (document.querySelector('input[name=paymentMethod]:checked').value === 'prepay' && window.slipData) ? {data: 'data:image/jpeg;base64,'+window.slipData} : null,
     photos: (window.parcelPhotos||[]),
     // ที่อยู่แยกช่อง (ใช้ออกบิล Quickwin) — ถ้ามาส่งเองที่จุดรับ จะไม่มีที่อยู่ผู้ส่ง
@@ -1266,6 +1284,10 @@ function showSuccess(mode){
   const sp = document.getElementById('sPayBox');
   const showPay = mode === 'sent' && isPrepay();
   sp.style.display = showPay ? 'block' : 'none';
+  if(mode === 'sent' && !showPay && document.querySelector('input[name=paymentMethod]:checked').value === 'onpickup'){
+    sp.style.display = 'block';
+    sp.innerHTML = '<p class="pay-status">จ่ายเงินสดกับพนักงานตอนรับของ หรืออยากโอนเข้าบัญชีบริษัทเลยก็ได้ ไม่ต้องผ่านคนรถ</p><button type="button" class="btn-ghost btn-full" style="margin-bottom:12px" onclick="payNow()">โอนเข้าบัญชีบริษัท</button>';
+  }
   if(showPay) document.getElementById('sPayMsg').textContent = 'ได้รับสลิปพร้อมการจองแล้ว ✓ ร้านกำลังตรวจสอบและจะยืนยันกลับทาง LINE หรือโทรศัพท์';
   document.getElementById('successCard').classList.remove('step-hidden');
   window.scrollTo({top:0});
@@ -1321,7 +1343,7 @@ function summaryText(withTail){
     ['ผู้ส่ง', [].concat(one('ชื่อ/เบอร์', g('ผู้ส่ง')), one('เข้ารับที่', g('เข้ารับที่')), one('วันที่เข้ารับ', g('วันที่เข้ารับ')), one('เบอร์ผู้ติดต่อ', g('เบอร์ผู้ติดต่อ')))],
     ['ผู้รับ', [].concat(one('ชื่อ/เบอร์', g('ผู้รับ')), one('ที่อยู่', g('ที่อยู่ผู้รับ')))],
     ['พัสดุและราคา', [].concat(one('โซนปลายทาง', g('โซนปลายทาง')), one('รายการพัสดุ', g('รายการพัสดุ')), block('รายละเอียดพัสดุ', g('รายละเอียดพัสดุ')), block('ลักษณะพัสดุ', g('ลักษณะพัสดุ')), one('ค่าบริการพัสดุพิเศษ (รวมในค่าขนส่งแล้ว)', g('ค่าบริการพัสดุพิเศษ (รวมในค่าขนส่งแล้ว)')), one('ค่าขนส่งรวม (ประมาณการ)', g('ค่าขนส่งรวม (ประมาณการ)')), one('หมายเหตุ', g('หมายเหตุ')))],
-    ['ชำระเงิน', [].concat(one('วิธีชำระเงิน', g('วิธีชำระเงิน')))]
+    ['ชำระเงิน', [].concat(one('วิธีชำระเงิน', g('วิธีชำระเงิน')), one('ค่าพัสดุ (COD)', g('ค่าพัสดุ (COD)')))]
   ];
   const head = [].concat(['เลขที่จอง: '+document.getElementById('refCodeOut').textContent], one('รูปแบบการจัดส่ง', g('รูปแบบการจัดส่ง')));
   const body = groups.filter(x=>x[1].length).map(x=>'■ '+x[0]+'\n'+x[1].join('\n'));
@@ -1385,10 +1407,10 @@ function qrPngUrl(text){
 let _bookingRef = null;
 function getRef(){ return _bookingRef || (_bookingRef = generateBookingRef()); }
 
-function paintPay(p, amount){
+function paintPay(p, amount, ref){
   const amtEl = document.getElementById(p+'Amt'), qrEl = document.getElementById(p+'Qr'), save = document.getElementById(p+'Save');
   if(amount > 0){
-    let url = ''; try{ url = qrPngUrl(payQrPayload(amount, getRef())); }catch(err){}
+    let url = ''; try{ url = qrPngUrl(payQrPayload(amount, ref || getRef())); }catch(err){}
     amtEl.textContent = Number(amount).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' บาท';
     if(url){ qrEl.innerHTML = '<img alt="QR สำหรับโอนเงิน" src="'+url+'">'; save.href = url; save.style.display = 'block'; }
     else { qrEl.innerHTML = '<div class="pay-noqr">สร้าง QR ไม่สำเร็จ กรุณาโอนเข้าบัญชีด้านล่างตามยอด</div>'; save.style.display = 'none'; }
@@ -1509,7 +1531,7 @@ function infoOf(x){
 }
 function setHistFilter(f){ histFilter = f; renderHist(); }
 let histPhone = null;   // ผลค้นหาจากระบบด้วยเบอร์ {phone, rows}
-const TRACK_URL = '';   // ใส่ลิงก์เว็บหลักสำหรับติดตามพัสดุหลังรับของ
+const TRACK_URL = 'https://www.bsgroupth.com/check-qw-status';   // เว็บหลักสำหรับติดตามพัสดุหลังรถรับของแล้ว
 const digits = s => String(s||'').replace(/\D/g,'');
 const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:o.paid?1:0, to:o.receiver||'', date:o.pickupDate||'', dest:o.dest||'', pay:o.payment||''});
 function findH(ref){ return ((histPhone&&histPhone.rows)||[]).concat(getHist()).find(h=>h.ref===ref); }
@@ -1549,14 +1571,59 @@ function openRow(ref){
   document.getElementById('hDr').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h2 style="margin:0;font-size:18px;">'+R+'</h2><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
     '<div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b style="font-weight:600">'+esc(r[1])+'</b>').join('')+'</div>'+
-    (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ทักไลน์ร้านเพื่อส่งสลิปใหม่':'')+'</p>':'')+
+    (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ส่งสลิปใหม่ได้ที่ปุ่มด้านล่าง':'')+'</p>':'')+
+    (!x.pd&&i.g!=='cancel'&&(x.sc==='ไม่ผ่าน'||/รถมารับ/.test(x.pay||''))?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" data-ref="'+R+'" onclick="openPaySheet(this.dataset.ref)">'+(x.sc==='ไม่ผ่าน'?'ส่งสลิปใหม่':'โอนเข้าบัญชีบริษัท')+'</button>':'')+
     (i.g==='cancel'?'':'<div class="pay-status" style="background:#F6F7F9"><small>เลขที่จอง ('+R+') ใช้อ้างอิงการจองเท่านั้น ส่วนเลขบิลเจ้าหน้าที่จะออกให้หลังร้านยืนยัน</small><br>เลขบิล: '+(x.bill?'<b>'+esc(x.bill)+'</b> <button type="button" class="copy-btn" data-b="'+esc(x.bill)+'" onclick="copyText(this,this.dataset.b)">คัดลอก</button>':'<b>รอเจ้าหน้าที่ออกเลขบิล</b>')+(x.pd?'<br>การชำระเงิน: <b style="color:#1F7A4D">บิลนี้ชำระแล้ว ✓</b>':x.bill?'<br>การชำระเงิน: <b style="color:#9A6B00">บิลนี้ยังไม่ได้ชำระ</b>'+(x.sl||i.g==='done'?'':'<br><small>ชำระกับคนรถได้ตามปกติ หรือถ้าอยากโอนเข้าบัญชีบริษัทแทน ทักไลน์ร้านก่อนรถเข้ารับ</small>'):'')+'</div>')+
     (m?'<a href="'+esc(x.bi)+'" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:13px"><img src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w400" alt="" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"><br>เปิดรูปบิล</a>':'')+
     (i.g==='cancel'?'<p style="color:var(--warn);font-size:13.5px;">การจองนี้ถูกยกเลิก</p>':steps.map((t,k)=>'<div class="stp'+(k<i.lv?' on':'')+'"><span></span>'+t+'</div>').join(''))+
-    (i.g==='done'?'<p class="pay-status">พัสดุอยู่ในขั้นตอนขนส่งแล้ว ติดตามต่อที่เว็บหลักด้วยเลขบิลของคุณ</p>'+(TRACK_URL?'<button type="button" class="btn-primary btn-full" style="margin-top:8px" onclick="window.open(TRACK_URL)">ไปติดตามพัสดุที่เว็บหลัก</button>':''):'')+(getHist().some(h=>h.ref===x.ref)?'':'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="keepRow(this.dataset.ref)">เก็บไว้ในเครื่องนี้</button>')+(x.snap?'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="rebookFrom(this.dataset.ref)">จองซ้ำ (ใช้ข้อมูลเดิม)</button>':'')+
+    (i.g==='done'?'<p class="pay-status">พัสดุอยู่ในขั้นตอนขนส่งแล้ว ติดตามต่อที่เว็บหลักด้วยเลขบิลของคุณ</p>'+(TRACK_URL?'<a class="btn-primary btn-full" href="'+TRACK_URL+'" target="_blank" rel="noopener" style="display:block;box-sizing:border-box;text-align:center;text-decoration:none;font-weight:600;font-size:15px;border-radius:10px;padding:13px 18px;margin-top:8px">ไปติดตามพัสดุที่เว็บหลัก</a>':''):'')+(getHist().some(h=>h.ref===x.ref)?'':'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="keepRow(this.dataset.ref)">เก็บไว้ในเครื่องนี้</button>')+(x.snap?'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="rebookFrom(this.dataset.ref)">จองซ้ำ (ใช้ข้อมูลเดิม)</button>':'')+
     '<div class="nav-row" style="margin-top:10px"><button type="button" class="btn-ghost" data-ref="'+R+'" onclick="copyText(this,this.dataset.ref)">คัดลอกเลขที่จอง</button><button type="button" class="btn-ghost" onclick="chatLine()">ทักไลน์ร้าน</button></div>'+
     '<div class="nav-row"><button type="button" class="btn-ghost" onclick="closeRow()">ปิด</button><button type="button" class="btn-ghost" style="color:var(--warn)" data-ref="'+R+'" onclick="delRow(this.dataset.ref)">ลบออกจากเครื่องนี้</button></div>';
   document.getElementById('hOv').classList.add('on');
+}
+// ===== โอนเข้าบัญชีบริษัทภายหลัง / ส่งสลิปใหม่ (ออเดอร์ที่จองแล้ว) =====
+function payNow(){ openPaySheet(document.getElementById('refCodeOut').textContent); }
+let _ps = {ref:'', data:''};
+function openPaySheet(ref){
+  const $ = id => document.getElementById(id), x = findH(ref), tot = Number(x && x.total) || 0;
+  _ps = {ref:ref, data:''};
+  $('hDr').innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2 style="margin:0;font-size:18px">โอนเข้าบัญชีบริษัท</h2><span class="pill" style="color:#475467;background:#F2F4F7">'+esc(ref)+'</span></div>'+
+    '<p class="pay-tip">โอนเข้าบัญชีบริษัทโดยตรง ไม่ต้องจ่ายผ่านคนรถ โอนแล้วแนบสลิปด้านล่างเพื่อแจ้งร้าน</p>'+
+    '<div class="slip-lbl">ยอดที่โอน (บาท) <span>แก้ได้ เช่น โอนเฉพาะส่วนต่าง</span></div>'+
+    '<input id="psIn" type="number" inputmode="decimal" min="1" step="0.01" value="'+(tot||'')+'" style="width:100%;box-sizing:border-box;padding:12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:16px;margin:6px 0 4px">'+
+    payInner('ps', false).replace(/<p class="pay-status" id="sPayMsg"><\/p>$/, '')+
+    '<div class="slip"><div class="slip-lbl">แนบสลิปโอนเงิน</div><input type="file" id="psFile" accept="image/*" hidden><button type="button" class="slip-btn" id="psPick">เลือกรูปสลิป</button>'+
+    '<div class="slip-prev" id="psPrev"><img id="psImg" alt="สลิปโอนเงิน"><div id="psName"></div></div><div class="slip-err" id="psErr"></div></div>'+
+    '<div class="nav-row"><button type="button" class="btn-ghost" onclick="closeRow()">ปิด</button><button type="button" class="btn-primary" id="psSend" disabled>ส่งสลิปแจ้งโอน</button></div>';
+  const inp = $('psIn'), send = $('psSend');
+  const sync = () => { send.disabled = !(_ps.data && parseFloat(inp.value) > 0); };
+  inp.addEventListener('input', () => { paintPay('ps', parseFloat(inp.value) || 0, ref); sync(); });
+  $('psPick').onclick = () => $('psFile').click();
+  $('psFile').onchange = e => {
+    const f = e.target.files && e.target.files[0]; if(!f) return; $('psErr').textContent = '';
+    readSlip(f).then(u => { _ps.data = u; $('psImg').src = u; $('psName').textContent = f.name; $('psPrev').style.display = 'flex'; $('psPick').textContent = 'เปลี่ยนรูปสลิป'; })
+      .catch(() => { $('psErr').textContent = 'อ่านรูปนี้ไม่ได้ ลองเลือกรูปอื่น'; })
+      .finally(() => { e.target.value = ''; sync(); });
+  };
+  send.onclick = psSend;
+  paintPay('ps', tot, ref);
+  $('hOv').classList.add('on');
+}
+async function psSend(){
+  const $ = id => document.getElementById(id), btn = $('psSend'), amt = parseFloat($('psIn').value) || 0;
+  btn.disabled = true; btn.textContent = 'กำลังส่งสลิป...'; $('psErr').textContent = '';
+  let j = null;
+  try{ const r = await fetch(WEBHOOK_URL, {method:'POST', body: JSON.stringify({action:'slip', ref:_ps.ref, amount:amt, slip:{data:_ps.data}})}); j = await r.json(); }catch(e){}
+  if(j && j.ok){
+    const a = getHist(), y = a.find(h => h.ref === _ps.ref); if(y){ y.sl = 1; y.sc = ''; putHist(a); }
+    const z = ((histPhone && histPhone.rows) || []).find(h => h.ref === _ps.ref); if(z){ z.sl = 1; z.sc = ''; }
+    renderHist();
+    $('hDr').innerHTML = '<h2 style="margin:0 0 8px;font-size:18px">ส่งสลิปแล้ว ✓</h2><p class="pay-status">ร้านได้รับสลิปแจ้งโอนแล้ว กำลังตรวจสอบและจะยืนยันกลับทาง LINE หรือโทรศัพท์ เมื่อร้านตรวจสลิปผ่าน คนรถไม่ต้องเก็บเงิน</p><button type="button" class="btn-ghost btn-full" onclick="closeRow()">ปิด</button>';
+    return;
+  }
+  $('psErr').textContent = (j && j.error === 'closed') ? 'ออเดอร์นี้ชำระแล้วหรือถูกยกเลิก ทักไลน์ร้านได้เลย' : 'ส่งสลิปไม่สำเร็จ ลองใหม่อีกครั้ง หรือส่งสลิปทางไลน์ร้าน';
+  btn.textContent = 'ส่งสลิปแจ้งโอน'; btn.disabled = false;
 }
 function rebookFrom(ref){ const x=getHist().find(h=>h.ref===ref); if(!x||!x.snap) return; closeRow(); startBooking(); applyDraft(x.snap); showStep(2); }
 function closeRow(){ document.getElementById('hOv').classList.remove('on'); }

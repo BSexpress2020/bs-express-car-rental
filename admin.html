@@ -51,14 +51,14 @@ function qwAddr(o,pre,fb){const z=k=>String(o[pre+k]==null?'':o[pre+k]).trim(),p
 function qwRow(o,br,date){
   const [n1,t1]=pNP(o.sender),[n2,t2]=pNP(o.receiver),sn=o.sndName||n1,sp=o.sndTel||t1,rn=o.rcvName||n2,rp=o.rcvTel||t2,
     a=qwAddr(o,'pickup',o.pickupAddress),b=qwAddr(o,'rcv',o.receiverAddress),ph=v=>String(v||'').replace(/[\s-]/g,'');
-  return{OrderType:/ปลายทาง|COD/i.test(o.payment||'')?'SO2':'SO1',BranchCode:br,OrderDate:date,ItemDesc:QW_ITEM,PackagingUnit:QW_UNIT,Price:o.total||'',QTY:1,
+  return{OrderType:/ปลายทาง/.test(o.payment||'')?'SO2':'SO1',BranchCode:br,OrderDate:date,ItemDesc:QW_ITEM,PackagingUnit:QW_UNIT,Price:o.total||'',QTY:1,
     SndFirstName:sn,SndAddrNo:a.no,SndAddTumbon:a.sub,SndAddrAmphoe:a.dist,SndAddrProvince:a.prov,SndPostCode:a.zip,SndCountry:'THAILAND',SndTel:ph(sp||o.pickupPhone),
-    DestFirstName:rn,DestAddrNo:b.no,DestAddTumbon:b.sub,DestAddrAmphoe:b.dist,DestAddrProvince:b.prov,DestPostCode:b.zip,DestCountry:'THAILAND',DestTel:ph(rp),ExtRefID:o.ref};
+    DestFirstName:rn,DestAddrNo:b.no,DestAddTumbon:b.sub,DestAddrAmphoe:b.dist,DestAddrProvince:b.prov,DestPostCode:b.zip,DestCountry:'THAILAND',DestTel:ph(rp),ExtRefID:o.ref,CODAmt:o.codAmt||''};
 }
 const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'ยืนยันแล้ว · รอเลขบิล':['#1D5FBF','#E6F0FD'],'รอรถเข้ารับ':['#6B4FBB','#EFEAFB'],'รับพัสดุแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
 const SLIP={'':['สลิปรอตรวจ','#9A6B00','#FFF4D6'],'ผ่าน':['สลิปถูกต้อง','#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['สลิปไม่ถูกต้อง','#B5502E','#FDECE7']};
 const BI={};
-const PAID='ชำระแล้ว',UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว)
+const PAID='ชำระแล้ว',UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก',SLP=o=>o.slip&&!o.slipCheck&&o.status!=='ยกเลิก'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว)
 function shrink(f,mx=1400){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const k=Math.min(1,mx/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.8))};i.onerror=no;i.src=u})}
 // ===== อ่านเลขพัสดุจากรูปบิล (Tesseract.js โหลดเมื่อเลือกรูปครั้งแรก) =====
 let OCRW;
@@ -100,18 +100,18 @@ async function loadOrders(first){
   }
   rb.disabled=false;rb.textContent='รีเฟรช';
 }
-function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
+function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):F==='slip'?SLP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
 function imgs(u,l){return String(u||'').split('\n').filter(Boolean).map((x,i)=>{const m=/\/d\/([^/]+)/.exec(x);return m?'<a href="'+esc(x)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w300" alt="">'+l+(i?i+1:'')+'</a>':''}).join('')}
 function card(o){
-  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?['ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['หมายเหตุ',o.note]].filter(r=>r[1]);
-  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
+  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?[/รถมารับ/.test(o.payment||'')?'ชำระแล้ว · คนรถไม่ต้องเก็บเงิน':'ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',o.pickupDate],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['แจ้งโอน',String(o.payLog||'').replace(/\n/g,' | ')],['ค่าพัสดุ (COD)',o.codAmt?'เก็บ COD '+Number(o.codAmt).toLocaleString()+' บาท จากผู้รับ':''],['หมายเหตุ',o.note]].filter(r=>r[1]);
+  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp,o.codAmt?['COD '+Number(o.codAmt).toLocaleString(),'#B5502E','#FDECE7']:null].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
   '<div class="dt" '+(OPEN[o.ref]?'':'hidden')+'><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div>'+
   '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ถูกต้อง</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ถูกต้อง</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+'> บิลนี้ชำระแล้ว</label></div>')+
   '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล" value="'+esc(o.bill)+'">'+
   '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label><div class="bi" data-m="'+R+'"></div>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
 }
 function render(){
-  $('chips').innerHTML=['all'].concat(ST,'unpaid').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
+  $('chips').innerHTML=['all'].concat(ST,'unpaid','slip').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s==='slip'?'สลิปรอตรวจ '+D.filter(SLP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
   const a=shown();$('list').innerHTML=a.length?a.map(card).join(''):'<p class="empty">ไม่มีออเดอร์</p>';
 }
 document.addEventListener('click',async e=>{
