@@ -1935,7 +1935,7 @@ function codStatus(j){
     '<div class="nav-row" style="margin-top:12px"><button type="button" class="btn-ghost" onclick="view(\'home\')">หน้าแรก</button>'+(j.status==='อนุมัติ'?'<button type="button" class="btn-primary" onclick="startBooking()">จองรถ</button>':'')+'</div>'}
 function cdType(){return document.querySelector('input[name=cdt]:checked').value}
 function cdFiles(){const T=cdType(),S=i=>'<div class="slip"><div class="slip-lbl">'+(i<2?(i+1)+'. ':'')+CL[T][i]+'</div><input type="file" accept="image/*,application/pdf" hidden id="cdF'+i+'" onchange="codPick('+i+',this)"><button type="button" class="slip-btn" onclick="cq(\'cdF'+i+'\').click()">'+(codF[i]?esc(codF[i].name)+' ✓ (เปลี่ยนไฟล์)':'เลือกไฟล์ (รูปหรือ PDF)')+'</button></div>';
-  cq('cdFiles').innerHTML=S(0)+S(1)+(T==='person'?'<p class="field-hint">เลขบัญชีธนาคารและชื่อบัญชีจะต้องตรงกับข้อมูลบัตรประชาชน</p>':'');cq('cdSign').innerHTML=S(2)}
+  cq('cdFiles').innerHTML=S(0)+S(1)+(T==='person'?'<p class="field-hint">เลขบัญชีธนาคารและชื่อบัญชีจะต้องตรงกับข้อมูลบัตรประชาชน</p>':'')}
 function codRead(f){return f.type==='application/pdf'?new Promise((ok,no)=>{if(f.size>3e6)return no();const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)}):readSlip(f)}
 function codPick(i,inp){const f=inp.files[0];if(!f)return;cq('cdE').textContent='';codRead(f).then(u=>{codF[i]={name:f.name,data:u};cdFiles()}).catch(()=>{cq('cdE').textContent='อ่านไฟล์นี้ไม่ได้ (PDF ต้องไม่เกิน 3 MB) ลองไฟล์อื่น'})}
 function codForm(){const sv=codSender(),I=(id,l,v,x)=>'<label class="field"><span class="lbl">'+l+'</span><input id="'+id+'" value="'+esc(v||'')+'" '+(x||'')+'></label>',H=t=>'<h3 style="font-size:15px;margin:18px 0 6px">'+t+'</h3>',OL='<ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.7">';codF=[];
@@ -1948,30 +1948,54 @@ function codForm(){const sv=codSender(),I=(id,l,v,x)=>'<label class="field"><spa
   H('เอกสารประกอบการสมัครบริการ มีดังนี้')+'<div id="cdFiles"></div>'+
   H('*เงื่อนไขการใช้บริการเก็บเงินปลายทาง (COD)')+OL+'<li>บริการเก็บเงินปลายทาง ผู้ส่งเป็นผู้ชำระค่าบริการ 2% ของมูลค่าสินค้า</li><li>การนำค่าสินค้าส่งกลับคืนให้ผู้ใช้บริการภายใน 3 วันหลังจัดส่งสำเร็จ</li><li>บริษัทฯ ขอสงวนสิทธิ์ในการเปลี่ยนแปลงโดยไม่ต้องแจ้งให้ทราบล่วงหน้า</li></ol>'+
   '<label style="display:flex;gap:8px;margin:12px 0;font-size:14px"><input type="checkbox" id="cdOk" style="width:auto"><span>ยอมรับเงื่อนไขข้างต้น และยินยอมให้เก็บ-ใช้ข้อมูลส่วนบุคคลและเอกสารเพื่อการสมัครบริการนี้</span></label>'+
-  H('ผู้ขอใช้บริการ')+'<p class="field-hint">พิมพ์ใบสมัครที่กรอกข้อมูลให้แล้ว เซ็นชื่อและลงวันที่ แล้วถ่ายรูปหรือสแกนอัปโหลดที่นี่ ส่งฉบับจริงตามมาทีหลังได้</p><button type="button" class="btn-ghost btn-full" style="margin-bottom:8px" onclick="codPrint()">พิมพ์ใบสมัคร (กรอกข้อมูลให้แล้ว)</button><div id="cdSign"></div>'+
+  H('ผู้ขอใช้บริการ')+'<p class="field-hint">เซ็นชื่อด้วยนิ้วหรือเมาส์ในกรอบนี้ ระบบจะใส่ลายเซ็นและวันที่ลงในใบสมัครให้เอง</p><canvas id="cdSig" width="600" height="240" style="width:100%;height:auto;aspect-ratio:5/2;border:1.5px dashed var(--line);border-radius:12px;background:#fff;touch-action:none;display:block"></canvas><div class="nav-row" style="margin:8px 0"><button type="button" class="btn-ghost" onclick="sigClear()">ล้างลายเซ็น</button><button type="button" class="btn-ghost" onclick="codPrint()">ดูใบสมัครก่อนส่ง</button></div>'+
   '<p class="error-msg" id="cdE" style="display:block"></p>'+
   '<div class="nav-row"><button type="button" class="btn-ghost" onclick="view(\'home\')">หน้าแรก</button><button type="button" class="btn-primary" id="cdGo" onclick="codSubmit()">ส่งใบสมัคร</button></div>'+
   '<button type="button" class="btn-ghost btn-full" style="margin-top:10px" onclick="codCheck()">เคยสมัครแล้ว? เช็คสถานะด้วยเบอร์โทร</button>';
-  cq('cdTypes').addEventListener('change',()=>{document.querySelectorAll('#cdTypes .choice').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));cdFiles()});cdFiles()}
+  cq('cdTypes').addEventListener('change',()=>{document.querySelectorAll('#cdTypes .choice').forEach(c=>c.classList.toggle('selected',c.querySelector('input').checked));cdFiles()});cdFiles();sigInit();sigOn=false}
 async function codSubmit(){const v=id=>cq(id).value.trim(),e=cq('cdE'),idn=v('cdId'),T=cdType();
-  const m=[[!v('cdName'),'กรุณากรอกชื่อ'],[!/^\d{13}$/.test(idn)||(T==='person'&&!thId(idn)),'เลข 13 หลักไม่ถูกต้อง'],[v('cdPhone').replace(/\D/g,'').length<9,'เบอร์โทรไม่ถูกต้อง'],[!v('cdContact'),'กรุณากรอกอีเมลหรือ LINE ID'],[!v('cdAddr'),'กรุณากรอกที่อยู่'],[!v('cdBank'),'กรุณาเลือกธนาคาร'],[!/^\d{8,15}$/.test(v('cdAcc')),'เลขที่บัญชีไม่ถูกต้อง (ตัวเลขล้วน)'],[!v('cdAccN'),'กรุณากรอกชื่อบัญชี'],[[0,1,2].some(i=>!codF[i]),'กรุณาแนบไฟล์ให้ครบ 3 รายการ'],[!cq('cdOk').checked,'กรุณาติ๊กยอมรับเงื่อนไข']].find(x=>x[0]);
+  const m=[[!v('cdName'),'กรุณากรอกชื่อ'],[!/^\d{13}$/.test(idn)||(T==='person'&&!thId(idn)),'เลข 13 หลักไม่ถูกต้อง'],[v('cdPhone').replace(/\D/g,'').length<9,'เบอร์โทรไม่ถูกต้อง'],[!v('cdContact'),'กรุณากรอกอีเมลหรือ LINE ID'],[!v('cdAddr'),'กรุณากรอกที่อยู่'],[!v('cdBank'),'กรุณาเลือกธนาคาร'],[!/^\d{8,15}$/.test(v('cdAcc')),'เลขที่บัญชีไม่ถูกต้อง (ตัวเลขล้วน)'],[!v('cdAccN'),'กรุณากรอกชื่อบัญชี'],[[0,1].some(i=>!codF[i]),'กรุณาแนบเอกสารให้ครบ 2 รายการ'],[!sigOn,'กรุณาเซ็นชื่อในกรอบ'],[!cq('cdOk').checked,'กรุณาติ๊กยอมรับเงื่อนไข']].find(x=>x[0]);
   if(m){e.textContent=m[1];return}e.textContent='';
   const b=cq('cdGo');b.disabled=true;b.textContent='กำลังส่ง...';let j;
-  try{j=await (await fetch(WEBHOOK_URL,{method:'POST',body:JSON.stringify({action:'cod',type:T==='person'?'บุคคลทั่วไป':'นิติบุคคล',name:v('cdName'),idNo:idn,phone:v('cdPhone'),contact:v('cdContact'),address:v('cdAddr'),bank:v('cdBank'),accNo:v('cdAcc'),accName:v('cdAccN'),consent:true,files:[0,1,2].map(i=>({label:CL[T][i],data:codF[i].data}))})})).json()}catch(x){}
+  try{const fm=(await codDraw()).toDataURL('image/jpeg',.88);j=await (await fetch(WEBHOOK_URL,{method:'POST',body:JSON.stringify({action:'cod',type:T==='person'?'บุคคลทั่วไป':'นิติบุคคล',name:v('cdName'),idNo:idn,phone:v('cdPhone'),contact:v('cdContact'),address:v('cdAddr'),bank:v('cdBank'),accNo:v('cdAcc'),accName:v('cdAccN'),consent:true,files:[0,1].map(i=>({label:CL[T][i],data:codF[i].data})).concat({label:'ใบสมัครที่เซ็นอิเล็กทรอนิกส์',data:fm})})})).json()}catch(x){}
   if(j&&(j.ok||j.error==='exists')){codSave(v('cdPhone'));codStatus({code:j.code,status:j.ok?'รอตรวจเอกสาร':j.status})}
   else{e.textContent=(j&&j.error)||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง หรือทักไลน์ @bsexpress';b.disabled=false;b.textContent='ส่งใบสมัคร'}}
-function codPrint(){const v=id=>esc(cq(id).value).replace(/\n/g,' '),w=window.open('','_blank');if(!w)return;
-  const R=(l,x)=>'<div class="r"><b>'+l+'</b><i>'+x+'</i></div>',D='...........................................';
-  w.document.write('<meta charset="utf-8"><title>ใบสมัคร COD</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font:12px/1.6 Sarabun,sans-serif;color:#000}.p{width:210mm;height:295mm;position:relative;overflow:hidden}.p>img{width:100%;display:block}.c{padding:0 14mm}h2{text-align:center;font-size:14px;margin:12px 0 6px}h3{font-size:13.5px;margin:9px 0 2px}.r{display:flex;gap:6px}.r b{font-weight:400;white-space:nowrap}.r i{font-style:normal;flex:1;border-bottom:1px dotted #333;padding:0 4px;min-height:1.6em}ol{margin:0;padding-left:28px}table{width:100%;border-collapse:collapse;margin:4px 0}td,th{border:1px solid #bbb;padding:3px 8px;vertical-align:top;text-align:left;width:50%}th{background:#e9e9e9;text-align:center;font-weight:400}.s{display:flex;justify-content:space-between;margin-top:20px}.f{position:absolute;left:0;right:0;bottom:0;border-top:2px solid #000;padding:6px 14mm;font-size:11px;line-height:1.5}</style>'+
-  '<div class="p"><img src="'+COD_HDR+'"><div class="c"><h2>ใบสมัครใช้บริการ เก็บเงินค่าสินค้าปลายทาง COD B.S.EXPRESS</h2>'+
-  '<h3>ข้อมูลลูกค้า</h3>'+R('ชื่อ – สกุล / ชื่อบริษัท',v('cdName'))+R('หมายเลขประจำตัวประชาชน / หมายเลขทะเบียนนิติบุคคล',v('cdId'))+R('ที่อยู่',v('cdAddr'))+R('เบอร์โทร',v('cdPhone'))+R('อีเมล / ไอดีไลน์ (สำหรับส่งหลักฐานการโอน)',v('cdContact'))+
-  '<h3>ข้อมูล COD</h3><div class="r"><div class="r" style="flex:1"><b>ธนาคาร</b><i>'+v('cdBank')+'</i></div><div class="r" style="flex:1"><b>เลขที่บัญชี</b><i>'+v('cdAcc')+'</i></div></div>'+R('ชื่อบัญชี',v('cdAccN'))+
-  '<h3>ขั้นตอน บริการเก็บเงินค่าสินค้าปลายทาง COD</h3><ol style="list-style:none;padding-left:14px"><li>1.ลูกค้าสมัครบริการเก็บเงินค่าสินค้าปลายทาง COD</li><li>2.ลูกค้าแจ้งความประสงค์ให้เก็บเงินค่าสินค้าปลายทาง COD แก่พนักงานในขั้นตอนการออกสลิปใบเสร็จ</li><li>3.บีเอส นำสินค้าส่งถึงปลายทางพร้อมรับชำระค่าสินค้าปลายทาง</li><li>4.บีเอส นำค่าสินค้าส่งกลับให้ลูกค้าต้นทาง</li></ol>'+
-  '<h3>เอกสารประกอบการสมัครบริการ มีดังนี้</h3><table><tr><th>กรณีบุคคลทั่วไป</th><th>กรณีนิติบุคคล</th></tr><tr><td>1. สำเนาบัตรประจำตัวประชาชน</td><td>1. สำเนาหนังสือรับรองนิติบุคคล (พร้อมลงนามและประทับตรา)</td></tr><tr><td>2. เลขบัญชีธนาคาร และชื่อบัญชีจะต้องตรงกับข้อมูลบัตรประชาชน / สำเนาหน้าสมุดบัญชีธนาคาร</td><td>2. สำเนาหน้าสมุดบัญชีธนาคาร</td></tr></table>'+
-  '<h3 style="font-weight:400">*เงื่อนไขการใช้บริการเก็บเงินปลายทาง (COD)</h3><ol><li>บริการเก็บเงินปลายทาง ผู้ส่งเป็นผู้ชำระค่าบริการ 2% ของมูลค่าสินค้า</li><li>การนำค่าสินค้าส่งกลับคืนให้ผู้ใช้บริการภายใน 3 วันหลังจัดส่งสำเร็จ</li><li>บริษัทฯ ขอสงวนสิทธิ์ในการเปลี่ยนแปลงโดยไม่ต้องแจ้งให้ทราบล่วงหน้า</li></ol>'+
-  '<div class="s"><span>ผู้ขอใช้บริการ'+D+'<br>วันที่'+D+'</span><span>ฝ่ายบัญชี'+D+'<br>วันที่'+D+'</span></div></div>'+
-  '<div class="f">สำนักงานใหญ่ : สถานีขนส่งสินค้าพุทธมณฑล ชานชาลา 11 ช่องที่ 16-17 ที่อยู่ 133 หมู่ 1 ต.บางเตย อ.สามพราน จ.นครปฐม 73210 โทร. 02-1148855 LINE : @bsexpress<br>ส่งฉบับจริงที่: '+esc(COD_ADDR).replace(/\n/g,' ')+'</div></div>');
-  w.document.close();setTimeout(()=>w.print(),700)}
+let sigOn=false;
+function sigInit(){const c=cq('cdSig'),x=c.getContext('2d');let d=false,a=0,b=0;x.lineWidth=3.5;x.lineCap=x.lineJoin='round';x.strokeStyle='#111';
+  const P=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
+  c.onpointerdown=e=>{d=true;c.setPointerCapture(e.pointerId);[a,b]=P(e);x.beginPath();x.moveTo(a,b);x.lineTo(a+.1,b);x.stroke();sigOn=true;e.preventDefault()};
+  c.onpointermove=e=>{if(!d)return;const [p,q]=P(e);x.beginPath();x.moveTo(a,b);x.lineTo(p,q);x.stroke();a=p;b=q};
+  c.onpointerup=c.onpointercancel=()=>{d=false}}
+function sigClear(){const c=cq('cdSig');c.getContext('2d').clearRect(0,0,c.width,c.height);sigOn=false}
+async function codDraw(){ // วาดใบสมัครเป็นภาพ A4 (1240x1754) พร้อมลายเซ็น
+  try{await document.fonts.load('22px Sarabun')}catch(e){}
+  const W=1240,H=1754,M=83,F='Sarabun,Kanit,sans-serif',c=document.createElement('canvas');c.width=W;c.height=H;
+  const x=c.getContext('2d'),v=id=>cq(id).value.trim().replace(/\s+/g,' '),L=s=>new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=s});
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#000';
+  const hi=await L(COD_HDR),hh=Math.round(hi.height*W/hi.width);x.drawImage(hi,0,0,W,hh);let y=hh+56;
+  const f=(px,b)=>x.font=(b?'700 ':'')+px+'px '+F,
+    wr=(t,w)=>{const o=[];let s='';for(const ch of t){if(x.measureText(s+ch).width>w&&s){o.push(s);s=ch}else s+=ch}o.push(s);return o},
+    tx=(t,xx,yy,al)=>{x.textAlign=al||'left';x.fillText(t,xx,yy);x.textAlign='left'},
+    dot=(x1,x2,yy)=>{x.save();x.setLineDash([2,5]);x.lineWidth=1.5;x.beginPath();x.moveTo(x1,yy+8);x.lineTo(x2,yy+8);x.stroke();x.restore()},
+    row=(l,val,x1,x2)=>{f(22);tx(l,x1,y);const s=x1+x.measureText(l).width+10;let p=22;f(p);while(p>12&&x.measureText(val).width>x2-s-8)f(--p);tx(val,s+4,y);dot(s,x2,y)},
+    h3=t=>{f(24,1);tx(t,M,y);y+=42};
+  f(27,1);tx('ใบสมัครใช้บริการ เก็บเงินค่าสินค้าปลายทาง COD B.S.EXPRESS',W/2,y,'center');y+=58;
+  h3('ข้อมูลลูกค้า');[['ชื่อ – สกุล / ชื่อบริษัท','cdName'],['หมายเลขประจำตัวประชาชน / หมายเลขทะเบียนนิติบุคคล','cdId'],['ที่อยู่','cdAddr'],['เบอร์โทร','cdPhone'],['อีเมล / ไอดีไลน์ (สำหรับส่งหลักฐานการโอน)','cdContact']].forEach(r=>{row(r[0],v(r[1]),M,W-M);y+=42});
+  y+=6;h3('ข้อมูล COD');row('ธนาคาร',v('cdBank'),M,W/2-10);row('เลขที่บัญชี',v('cdAcc'),W/2+10,W-M);y+=42;row('ชื่อบัญชี',v('cdAccN'),M,W-M);y+=50;
+  h3('ขั้นตอน บริการเก็บเงินค่าสินค้าปลายทาง COD');f(22);['1.ลูกค้าสมัครบริการเก็บเงินค่าสินค้าปลายทาง COD','2.ลูกค้าแจ้งความประสงค์ให้เก็บเงินค่าสินค้าปลายทาง COD แก่พนักงานในขั้นตอนการออกสลิปใบเสร็จ','3.บีเอส นำสินค้าส่งถึงปลายทางพร้อมรับชำระค่าสินค้าปลายทาง','4.บีเอส นำค่าสินค้าส่งกลับให้ลูกค้าต้นทาง'].forEach(t=>{tx(t,M+30,y);y+=36});y+=10;
+  h3('เอกสารประกอบการสมัครบริการ มีดังนี้');
+  const cw=(W-2*M)/2,tb=(a,b,hd)=>{f(21,hd);const A=wr(a,cw-28),B=wr(b,cw-28),h=Math.max(A.length,B.length)*32+14;x.fillStyle=hd?'#e9e9e9':'#fff';x.fillRect(M,y,cw*2,h);x.fillStyle='#000';x.strokeStyle='#bbb';x.lineWidth=2;x.strokeRect(M,y,cw,h);x.strokeRect(M+cw,y,cw,h);
+    A.forEach((t,i)=>tx(t,hd?M+cw/2:M+14,y+32+i*32,hd?'center':'left'));B.forEach((t,i)=>tx(t,hd?M+cw*1.5:M+cw+14,y+32+i*32,hd?'center':'left'));y+=h};
+  tb('กรณีบุคคลทั่วไป','กรณีนิติบุคคล',1);tb('1. สำเนาบัตรประจำตัวประชาชน','1. สำเนาหนังสือรับรองนิติบุคคล (พร้อมลงนามและประทับตรา)');tb('2. เลขบัญชีธนาคาร และชื่อบัญชีจะต้องตรงกับข้อมูลบัตรประชาชน / สำเนาหน้าสมุดบัญชีธนาคาร','2. สำเนาหน้าสมุดบัญชีธนาคาร');y+=46;
+  f(22);tx('*เงื่อนไขการใช้บริการเก็บเงินปลายทาง (COD)',M,y);y+=38;['1. บริการเก็บเงินปลายทาง ผู้ส่งเป็นผู้ชำระค่าบริการ 2% ของมูลค่าสินค้า','2. การนำค่าสินค้าส่งกลับคืนให้ผู้ใช้บริการภายใน 3 วันหลังจัดส่งสำเร็จ','3. บริษัทฯ ขอสงวนสิทธิ์ในการเปลี่ยนแปลงโดยไม่ต้องแจ้งให้ทราบล่วงหน้า'].forEach(t=>{tx(t,M+30,y);y+=36});y+=90;
+  const n=new Date(),dt=n.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}),tm=n.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),bw=(W-2*M)/2-20;
+  if(sigOn)x.drawImage(cq('cdSig'),M+150,y-105,300,120);
+  row('ผู้ขอใช้บริการ','',M,M+bw);row('ฝ่ายบัญชี','',W/2+20,W-M);y+=46;row('วันที่',sigOn?dt:'',M,M+bw);row('วันที่','',W/2+20,W-M);
+  if(sigOn){f(16);tx('เซ็นอิเล็กทรอนิกส์เมื่อ '+dt+' เวลา '+tm+' น.',M,y+38)}
+  x.fillRect(0,H-150,W,3);f(19);tx('สำนักงานใหญ่ : สถานีขนส่งสินค้าพุทธมณฑล ชานชาลา 11 ช่องที่ 16-17 ที่อยู่ 133 หมู่ 1 ต.บางเตย',M,H-105);tx('อ.สามพราน จ.นครปฐม 73210 โทร. 02-1148855 LINE : @bsexpress',M,H-72);
+  return c}
+async function codPrint(){const w=window.open('','_blank');if(!w)return;w.document.write('<p style="font:16px sans-serif">กำลังสร้างใบสมัคร...</p>');
+  const u=(await codDraw()).toDataURL('image/jpeg',.9);w.document.open();w.document.write('<meta charset="utf-8"><title>ใบสมัคร COD</title><style>@page{size:A4;margin:0}body{margin:0}img{width:100%;max-width:210mm;display:block;margin:auto}</style><img src="'+u+'">');w.document.close()}
 async function codGate(){const ce=cq('codErr');if(!codOn()){ce.style.display='none';return true}
   const j=await codFetch(document.querySelector('[name=senderPhone]').value);
   if(j&&j.found&&j.status==='อนุมัติ'){ce.style.display='none';return true}
