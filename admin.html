@@ -20,6 +20,15 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 .im{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.im a{display:block;text-align:center;font-size:12px;color:var(--soft);text-decoration:none}.im img{width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block}
 .ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ctl .btn{grid-column:span 1}
 .empty,.msg{text-align:center;color:var(--soft);padding:24px 0}#err{color:var(--warn);min-height:22px}
+.dv{position:fixed;inset:0;z-index:99;background:rgba(16,24,40,.94);display:none;flex-direction:column}.dv.on{display:flex}
+.dv .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;background:#fff;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+.dv .bar b{font-family:Kanit,sans-serif;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.dv .bar span{display:flex;gap:8px;flex:none}.dv .bar .btn{padding:8px 12px;text-decoration:none;font-size:14px}
+.dv .bd{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px;text-align:center}
+.dv .bd img{max-width:100%;height:auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.35)}
+.dv .bd iframe{border:0;width:100%;height:100%;min-height:70vh;background:#fff}
+.dv .ms{color:#fff;padding:40px 12px}
+@media print{body>*:not(#dv){display:none!important}.dv{position:static;display:block;background:#fff}.dv .bar,.dv .ms{display:none}.dv .bd{padding:0;overflow:visible}.dv .bd img{width:100%;box-shadow:none}}
 .sc{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}.sc label{display:flex;gap:6px;align-items:center}.sc input{width:auto;padding:0}.bi{grid-column:1/-1;font-size:13.5px;color:var(--soft)}
 </style></head><body>
 <div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
@@ -27,6 +36,7 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 <div class="wrap" id="app" hidden>
 <div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" id="rf" onclick="loadOrders()">รีเฟรช</button><button class="btn g" onclick="cod()">สมัคร COD</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
 <div id="ts" style="color:var(--soft);font-size:13px;margin:-4px 0 8px"></div><div class="box" id="warn" hidden style="margin-bottom:12px;color:var(--warn);background:#FFF4EE"></div><div class="chips" id="chips"></div><div id="list"></div><div id="cod" hidden></div></div>
+<div class="dv" id="dv" role="dialog" aria-modal="true"><div class="bar"><b id="dvT"></b><span><a class="btn g" id="dvO" target="_blank" rel="noopener" hidden>เปิดแท็บใหม่</a><button class="btn g" id="dvP" hidden onclick="window.print()">พิมพ์</button><button class="btn" onclick="dvClose()">ปิด</button></span></div><div class="bd" id="dvB"></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzuytTqXWU9DrPjjcZwly5UjEnhrZbSybPS5CM0jyHKWDrZxJWQ52LacellhfLKzRQsAw/exec';
 // ===== ส่งออกตามแม่แบบ Quickwin (BSOrderTemplate.xlsx) : หัวคอลัมน์ A→AG เรียงตามคู่มือ =====
@@ -161,12 +171,32 @@ async function loadCod(){$('cod').innerHTML='<p class="empty">กำลังโ
 function renderCod(){$('cod').innerHTML=CA.length?CA.map(a=>{const c=CCOL[a.status]||CCOL['รอตรวจเอกสาร'],R=esc(a.code),
   kv=[['ประเภท',a.type],['เลขบัตร/ทะเบียน',a.idNo],['เบอร์',a.phone],['ติดต่อ',a.contact],['ที่อยู่',a.address],['บัญชี',a.bank+' '+a.accNo],['ชื่อบัญชี',a.accName]],
   docs=String(a.docs||'').split('\n').filter(Boolean).map(d=>{const p=d.split('|');return '<button class="btn g" data-doc="'+esc(p[1])+'">'+esc(p[0])+'</button>'}).join(' ');
-  return '<div class="o"><div class="hd"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(a.status)+'</span>'+(a.original?'<span class="pill" style="color:#1F7A4D;background:#E6F4EC">ได้รับฉบับจริง</span>':'')+'</span></div><div class="sub"><span>'+esc(a.name)+'</span><span>'+when(a.createdAt)+'</span></div></div>'+
+  return '<div class="o"><div class="hd"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(a.status)+'</span>'+'</span></div><div class="sub"><span>'+esc(a.name)+'</span><span>'+when(a.createdAt)+'</span></div></div>'+
   '<div class="dt" style="padding-top:12px"><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div><div class="im">'+docs+'</div>'+
-  '<div class="sc"><label><input type="checkbox" data-co="'+R+'"'+(a.original?' checked':'')+'> ได้รับฉบับจริงแล้ว</label></div>'+
   '<div class="ctl"><select data-cs="'+R+'">'+['รอตรวจเอกสาร','อนุมัติ','ไม่ผ่าน'].map(s=>'<option'+(s===a.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-cr="'+R+'" placeholder="เหตุผล (ถ้าไม่ผ่าน ลูกค้าจะเห็น)" value="'+esc(a.reason)+'"><button class="btn" data-csave="'+R+'">บันทึก</button></div></div></div>'}).join(''):'<p class="empty">ยังไม่มีใบสมัคร</p>'}
+// ===== ดูเอกสารในหน้า: แปลง data URL -> Blob URL (Chrome บล็อก data: PDF ใน iframe / แท็บใหม่บน iPad-มือถือค้าง) =====
+function d2b(u){const i=String(u||'').indexOf(',');if(i<0||u.slice(0,5)!=='data:')return null;
+  const h=u.slice(5,i),raw=u.slice(i+1),bin=/;base64/i.test(h)?atob(raw):decodeURIComponent(raw),a=new Uint8Array(bin.length);
+  for(let k=0;k<bin.length;k++)a[k]=bin.charCodeAt(k);
+  let m=h.split(';')[0]||'';
+  if(a[0]===0x25&&a[1]===0x50&&a[2]===0x44&&a[3]===0x46)m='application/pdf';else if(a[0]===0xFF&&a[1]===0xD8)m='image/jpeg';else if(a[0]===0x89&&a[1]===0x50)m='image/png';
+  return new Blob([a],{type:m||'application/octet-stream'})}
+let DU='';
+function dvClose(){$('dv').classList.remove('on');document.body.style.overflow='';if(DU){URL.revokeObjectURL(DU);DU=''}$('dvB').innerHTML=''}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('dv').classList.contains('on'))dvClose()});
+async function openDoc(btn){
+  const t=btn.textContent;$('dvT').textContent=t;$('dvO').hidden=true;$('dvP').hidden=true;$('dvB').innerHTML='<p class="ms">กำลังโหลดเอกสาร...</p>';$('dv').classList.add('on');document.body.style.overflow='hidden';
+  try{
+    const j=await api({action:'codDoc',id:btn.dataset.doc});if(!j.ok)throw new Error(j.error);
+    const b=d2b(j.data);if(!b)throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+    if(!$('dv').classList.contains('on'))return; // ปิดไปก่อนโหลดเสร็จ
+    if(DU)URL.revokeObjectURL(DU);DU=URL.createObjectURL(b);
+    const pdf=b.type==='application/pdf';
+    $('dvB').innerHTML=pdf?'<iframe src="'+DU+'" title="'+esc(t)+'"></iframe>':'<img src="'+DU+'" alt="'+esc(t)+'">';
+    $('dvO').href=DU;$('dvO').hidden=false;$('dvP').hidden=pdf; // PDF ให้กด "เปิดแท็บใหม่" แล้วพิมพ์จากตัวอ่าน PDF
+  }catch(x){$('dvB').innerHTML='<p class="ms">เปิดเอกสารไม่ได้: '+esc(x.message)+'</p>'}}
 $('cod').addEventListener('click',async e=>{const t=e.target,d=t.closest('[data-doc]'),s=t.closest('[data-csave]');
-  if(d){const w=window.open('','_blank');try{const j=await api({action:'codDoc',id:d.dataset.doc});if(!j.ok)throw new Error(j.error);w.document.write(j.data.indexOf('data:application/pdf')===0?'<iframe src="'+j.data+'" style="border:0;width:100vw;height:100vh"></iframe>':'<img src="'+j.data+'" style="max-width:100%">')}catch(x){w.close();alert('เปิดเอกสารไม่ได้: '+x.message)}}
-  else if(s){const r=s.dataset.csave,q=k=>document.querySelector('[data-'+k+'="'+r+'"]');s.disabled=true;try{const j=await api({action:'codUpdate',code:r,status:q('cs').value,reason:q('cr').value.trim(),original:q('co').checked});if(!j.ok)throw new Error(j.error);await loadCod()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);s.disabled=false}}});
+  if(d){openDoc(d)}
+  else if(s){const r=s.dataset.csave,a0=CA.find(x=>x.code===r)||{},q=k=>document.querySelector('[data-'+k+'="'+r+'"]');s.disabled=true;try{const j=await api({action:'codUpdate',code:r,status:q('cs').value,reason:q('cr').value.trim(),original:!!a0.original});if(!j.ok)throw new Error(j.error);await loadCod()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);s.disabled=false}}});
 if(T)loadOrders();
 </script></body></html>
