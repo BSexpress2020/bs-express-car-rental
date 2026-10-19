@@ -1547,7 +1547,8 @@ function setHistFilter(f){ histFilter = f; renderHist(); }
 let histPhone = null;   // ผลค้นหาจากระบบด้วยเบอร์ {phone, rows}
 const TRACK_URL = 'https://www.bsgroupth.com/check-qw-status';   // เว็บหลักสำหรับติดตามพัสดุหลังรถรับของแล้ว
 const digits = s => String(s||'').replace(/\D/g,'');
-const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:o.paid?1:0, to:o.receiver||'', date:o.pickupDate||'', dest:o.dest||'', pay:o.payment||''});
+const fmtPd=v=>{const m=/^\d{4}-\d\d-\d\dT/.test(String(v||''));if(!m)return v;const t=new Date(new Date(v).getTime()+7*36e5),p=n=>String(n).padStart(2,'0');return p(t.getUTCDate())+'/'+p(t.getUTCMonth()+1)+'/'+t.getUTCFullYear()}; // ชีตแปลง "20/10/2569" เป็นวันที่ ทำให้ได้ ISO กลับมา -> แปลงกลับเป็น วว/ดด/ปปปป
+const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:o.paid?1:0, to:o.receiver||'', date:fmtPd(o.pickupDate||''), dest:o.dest||'', pay:o.payment||''});
 function findH(ref){ return ((histPhone&&histPhone.rows)||[]).concat(getHist()).find(h=>h.ref===ref); }
 // สลิป = สถานะแยกจากขั้นตอนรับพัสดุ
 function slipInfo(x){ return !x.sl||(x.sc==='ผ่าน'&&x.pd)?null : x.sc==='ผ่าน'?['สลิปถูกต้อง ✓','#1F7A4D','#E6F4EC'] : x.sc==='ไม่ผ่าน'?['สลิปไม่ถูกต้อง','#B5502E','#FDECE7'] : ['สลิปรอร้านตรวจ','#9A6B00','#FFF4D6']; }
@@ -1585,7 +1586,7 @@ function openRow(ref){
   document.getElementById('hDr').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h2 style="margin:0;font-size:18px;">'+R+'</h2><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
     '<div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b style="font-weight:600">'+esc(r[1])+'</b>').join('')+'</div>'+
-    (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ส่งสลิปใหม่ได้ที่ปุ่มด้านล่าง':'')+'</p>':'')+
+    (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ส่งสลิปใหม่ได้ที่ปุ่มด้านล่าง หรือทักไลน์ร้านถ้าต้องการเปลี่ยนวิธีชำระ':'')+'</p>':'')+
     (!x.pd&&i.g!=='cancel'&&(x.sc==='ไม่ผ่าน'||/รถมารับ/.test(x.pay||''))?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" data-ref="'+R+'" onclick="openPaySheet(this.dataset.ref)">'+(x.sc==='ไม่ผ่าน'?'ส่งสลิปใหม่':'โอนเข้าบัญชีบริษัท')+'</button>':'')+
     (i.g==='cancel'?'':'<div class="pay-status" style="background:#F6F7F9"><small>เลขที่จอง ('+R+') ใช้อ้างอิงการจองเท่านั้น ส่วนเลขบิลเจ้าหน้าที่จะออกให้หลังร้านยืนยัน</small><br>เลขบิล: '+(x.bill?'<b>'+esc(x.bill)+'</b> <button type="button" class="copy-btn" data-b="'+esc(x.bill)+'" onclick="copyText(this,this.dataset.b)">คัดลอก</button>':'<b>รอเจ้าหน้าที่ออกเลขบิล</b>')+(x.pd?'<br>การชำระเงิน: <b style="color:#1F7A4D">บิลนี้ชำระแล้ว ✓</b>':x.bill?'<br>การชำระเงิน: <b style="color:#9A6B00">บิลนี้ยังไม่ได้ชำระ</b>'+(x.sl||i.g==='done'?'':'<br><small>ชำระกับคนรถได้ตามปกติ หรือถ้าอยากโอนเข้าบัญชีบริษัทแทน ทักไลน์ร้านก่อนรถเข้ารับ</small>'):'')+'</div>')+
     (m?'<a href="'+esc(x.bi)+'" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:13px"><img src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w400" alt="" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"><br>เปิดรูปบิล</a>':'')+
@@ -2020,10 +2021,13 @@ async function codPrint(){ // ตัวอย่างใบสมัคร แ�
     pvUrl=u.indexOf('blob:')===0?u:'';
     bd.innerHTML='<img alt="ตัวอย่างใบสมัคร COD" src="'+u+'"><p class="pvMsg" style="padding:14px 0 6px">ตัวอย่างเท่านั้น · ใบสมัครจริงจะมีลายเซ็นและเวลาตอนกดส่ง</p><button type="button" class="btn-primary btn-full" onclick="pvClose()" style="margin:6px 0 20px">ปิดตัวอย่าง</button>';
   }catch(e){bd.innerHTML='<p class="pvMsg">สร้างตัวอย่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</p><button type="button" class="btn-primary btn-full" onclick="pvClose()">ปิด</button>'}}
-async function codGate(){const ce=cq('codErr');if(!codOn()){ce.style.display='none';return true}
-  const j=await codFetch(document.querySelector('[name=senderPhone]').value);
-  if(j&&j.found&&j.status==='อนุมัติ'){ce.style.display='none';return true}
-  ce.innerHTML='ต้องสมัครบริการ COD และรอร้านอนุมัติก่อน จึงจะเก็บ COD ได้ <button type="button" class="btn-ghost" style="margin-top:6px" onclick="openCod()">สมัครบริการ COD</button>';ce.style.display='block';return false}
+let codGateSeq=0;
+async function codGate(){const ce=cq('codErr'),n=++codGateSeq;if(!codOn()){ce.style.display='none';return true}
+  const j=await codFetch(document.querySelector('[name=senderPhone]').value),ok=!!(j&&j.found&&j.status==='อนุมัติ');
+  if(n===codGateSeq&&codOn()){ // แสดงผลเฉพาะคำตอบล่าสุด และเฉพาะตอนที่ยังเลือก "เก็บ COD" อยู่ (กันผลเก่าที่มาช้าโผล่ทับ)
+    if(ok)ce.style.display='none';
+    else{ce.innerHTML='ต้องสมัครบริการ COD และรอร้านอนุมัติก่อน จึงจะเก็บ COD ได้ <button type="button" class="btn-ghost" style="margin-top:6px" onclick="openCod()">สมัครบริการ COD</button>';ce.style.display='block'}}
+  return ok||!codOn()}
 cq('codChoices').addEventListener('change',codGate);
 </script>
 </body>
