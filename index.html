@@ -1926,12 +1926,20 @@ const COD_HDR='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBg
 const cq=id=>document.getElementById(id);let codF=[];cq('codHdr').src=COD_HDR;
 const thId=s=>{let t=0;for(let i=0;i<12;i++)t+=s[i]*(13-i);return (11-t%11)%10==s[12]};
 async function codFetch(p){try{const j=await (await fetch(WEBHOOK_URL+'?action=cod&phone='+encodeURIComponent(p))).json();return j&&j.ok?j:null}catch(e){return null}}
-function openCod(){view('cod');codForm()}
+let codLast=null;
+const codSaved=()=>{try{return localStorage.getItem('bsCodPhone')||''}catch(e){return ''}},codSave=p=>{try{localStorage.setItem('bsCodPhone',p)}catch(e){}};
+async function openCod(){view('cod');const p=codSaved();
+  if(!p){codForm();return}
+  cq('codBody').innerHTML='<p class="field-hint">กำลังเช็คสถานะใบสมัคร...</p>';
+  const j=await codFetch(p);if(j&&j.found)codStatus(j);else codForm()}
+async function codBack(b){const p=codSaved();b.disabled=true;const j=p?await codFetch(p):null;b.disabled=false;
+  if(j&&j.found)codStatus(j);else if(codLast)codStatus(codLast);else b.textContent='ไม่พบใบสมัครเดิม'}
 function codCheck(b){const p=cq('cdChkP').value.trim(),m=cq('cdChkM');
   if(p.replace(/\D/g,'').length<9){m.textContent='กรุณากรอกเบอร์โทรที่ใช้สมัคร';return}
   m.textContent='กำลังเช็ค...';b.disabled=true;
-  codFetch(p).then(j=>{b.disabled=false;if(j&&j.found){codStatus(j)}else m.textContent='ไม่พบใบสมัครจากเบอร์นี้'})}
+  codFetch(p).then(j=>{b.disabled=false;if(j&&j.found){codSave(p);codStatus(j)}else m.textContent='ไม่พบใบสมัครจากเบอร์นี้'})}
 function codStatus(j,note){
+  codLast=j;
   const m={'รอตรวจเอกสาร':['รอร้านตรวจเอกสาร','ไม่ต้องส่งใบสมัครฉบับจริง ร้านพิมพ์เอง · แจ้งผลทาง LINE หรือโทรศัพท์'],'อนุมัติ':['อนุมัติแล้ว','เลือก “เก็บ COD” ตอนจองได้เลย'],'ไม่ผ่าน':['ไม่ผ่าน',j.reason||'กรุณาติดต่อร้านทาง LINE @bsexpress']}[j.status]||[j.status,''];
   cq('codBody').innerHTML=(note?'<p class="field-hint" style="margin:0 0 10px;color:var(--warn)">'+esc(note)+'</p>':'')+'<p class="pay-status"><b>'+esc(j.code)+' · '+m[0]+'</b><br>'+esc(m[1])+'</p>'+
     (j.status==='ไม่ผ่าน'?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" onclick="codForm()">สมัครใหม่</button>':'<button type="button" class="btn-ghost btn-full" style="margin-top:10px" onclick="codForm()">กรอกใบสมัครใหม่อีกฉบับ</button>')+
@@ -1943,7 +1951,7 @@ function cdFiles(){const T=cdType(),S=i=>'<div class="slip"><div class="slip-lbl
 function codRead(f){return f.type==='application/pdf'?new Promise((ok,no)=>{if(f.size>3e6)return no();const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)}):readSlip(f)}
 function codPick(i,inp){const f=inp.files[0];if(!f)return;cq('cdE').textContent='';codRead(f).then(u=>{codF[i]={name:f.name,data:u};cdFiles()}).catch(()=>{cq('cdE').textContent='อ่านไฟล์นี้ไม่ได้ (PDF ต้องไม่เกิน 3 MB) ลองไฟล์อื่น'})}
 function codForm(){const I=(id,l,v,x)=>'<label class="field"><span class="lbl">'+l+'</span><input id="'+id+'" value="'+esc(v||'')+'" '+(x||'')+'></label>',H=t=>'<h3 style="font-size:15px;margin:18px 0 6px">'+t+'</h3>',OL='<ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.7">';codF=[];
-  cq('codBody').innerHTML='<p class="step-sub">เลือกกรณีที่ตรงกับคุณ แล้วกรอกให้ครบ สมัครครั้งเดียวใช้ได้ทุกการจอง</p>'+
+  cq('codBody').innerHTML=(codLast||codSaved()?'<button type="button" class="btn-ghost btn-full" style="margin-bottom:12px" onclick="codBack(this)">← กลับไปดูสถานะใบสมัครของฉัน</button>':'')+'<p class="step-sub">เลือกกรณีที่ตรงกับคุณ แล้วกรอกให้ครบ สมัครครั้งเดียวใช้ได้ทุกการจอง</p>'+
   '<div class="choice-grid" id="cdTypes"><label class="choice selected"><input type="radio" name="cdt" value="person" checked><span><span class="c-title">กรณีบุคคลทั่วไป</span></span></label><label class="choice"><input type="radio" name="cdt" value="company"><span><span class="c-title">กรณีนิติบุคคล</span></span></label></div>'+
   H('ข้อมูลลูกค้า')+I('cdName','ชื่อ – สกุล / ชื่อบริษัท')+I('cdId','หมายเลขประจำตัวประชาชน / หมายเลขทะเบียนนิติบุคคล (13 หลัก)','','inputmode="numeric" maxlength="13"')+
   '<label class="field"><span class="lbl">ที่อยู่</span><textarea id="cdAddr"></textarea></label>'+I('cdPhone','เบอร์โทร','','type="tel" inputmode="tel"')+I('cdContact','อีเมล / ไอดีไลน์ (สำหรับส่งหลักฐานการโอน)')+
@@ -1963,7 +1971,7 @@ async function codSubmit(){const v=id=>cq(id).value.trim(),e=cq('cdE'),idn=v('cd
   if(m){e.textContent=m[1];return}e.textContent='';
   const b=cq('cdGo');b.disabled=true;b.textContent='กำลังส่ง...';let j;
   try{const fm=(await codDraw()).toDataURL('image/jpeg',.88);j=await (await fetch(WEBHOOK_URL,{method:'POST',body:JSON.stringify({action:'cod',type:T==='person'?'บุคคลทั่วไป':'นิติบุคคล',name:v('cdName'),idNo:idn,phone:v('cdPhone'),contact:v('cdContact'),address:v('cdAddr'),bank:v('cdBank'),accNo:v('cdAcc'),accName:v('cdAccN'),consent:true,files:[0,1].map(i=>({label:CL[T][i],data:codF[i].data})).concat({label:'ใบสมัครที่เซ็นอิเล็กทรอนิกส์',data:fm})})})).json()}catch(x){}
-  if(j&&(j.ok||j.error==='exists')){codStatus({code:j.code,status:j.ok?'รอตรวจเอกสาร':j.status},j.ok?'':'เบอร์นี้มีใบสมัครอยู่ในระบบแล้ว จึงยังไม่ได้สร้างใบสมัครใหม่')}
+  if(j&&(j.ok||j.error==='exists')){codSave(v('cdPhone'));codStatus({code:j.code,status:j.ok?'รอตรวจเอกสาร':j.status},j.ok?'':'เบอร์นี้มีใบสมัครอยู่ในระบบแล้ว จึงยังไม่ได้สร้างใบสมัครใหม่')}
   else{e.textContent=(j&&j.error)||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง หรือทักไลน์ @bsexpress';b.disabled=false;b.textContent='ส่งใบสมัคร'}}
 let sigOn=false;
 function sigInit(){const c=cq('cdSig'),x=c.getContext('2d');let d=false,a=0,b=0;x.lineWidth=3.5;x.lineCap=x.lineJoin='round';x.strokeStyle='#111';
