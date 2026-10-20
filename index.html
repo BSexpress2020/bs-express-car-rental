@@ -641,7 +641,7 @@ select,select:disabled{-webkit-appearance:none;appearance:none;padding-right:44p
           <button type="button" class="copy-btn" onclick="copyRef()">คัดลอกเลขที่จอง</button>
         </div>
         <div id="sPayBox" style="display:none"></div>
-        <button type="button" id="openLineBtn" onclick="openLine()" style="display:none;width:100%;padding:14px;border:none;border-radius:12px;font-family:inherit;font-weight:600;font-size:15px;color:#fff;background:#06C755;cursor:pointer;margin:0 0 10px;">เปิด LINE เพื่อส่งการจอง</button>
+        <button type="button" id="openLineBtn" onclick="openLine()" style="display:none;width:100%;padding:14px;border:none;border-radius:12px;font-family:inherit;font-weight:600;font-size:15px;color:#fff;background:#06C755;cursor:pointer;margin:0 0 10px;">คัดลอกการจอง + เปิด LINE ร้าน</button>
         <button type="button" class="copy-btn" id="copySumBtn" style="margin:0 auto 12px;" onclick="copySummary(this)">คัดลอกสรุปการจอง</button>
         <p id="successNote" style="font-size:12.5px;color:var(--ink-soft);"></p>
         <div class="success-actions">
@@ -1286,8 +1286,8 @@ function showSuccess(mode){
   clearTimeout(_dt); try{localStorage.removeItem(DRAFT_KEY);}catch(e){}
   const T = {
     sent: ['ส่งการจองถึงร้านแล้ว','ทีมงานจะติดต่อยืนยันกลับตามเบอร์โทรที่คุณกรอก','เลขที่จองใช้อ้างอิงการจอง ส่วนเลขบิลเจ้าหน้าที่จะออกให้ภายหลัง ดูได้ในประวัติการจอง'],
-    unconfirmed: ['ยังยืนยันไม่ได้ว่าร้านได้รับการจอง','การเชื่อมต่อมีปัญหา กรุณากดส่งการจองทาง LINE อีกครั้ง หรือคัดลอกข้อความไปส่งให้ร้าน','ถ้าไม่ได้รับข้อความตอบกลับจากร้าน แสดงว่าร้านยังไม่ได้รับออเดอร์ ให้กดปุ่มด้านบนอีกครั้ง'],
-    link: ['เหลืออีกขั้นเดียว','การจองจะสมบูรณ์เมื่อคุณ<b>กดส่งข้อความในแชท LINE ของร้าน</b> แล้วร้านจะตอบกลับเพื่อยืนยัน','ถ้าไม่ได้รับข้อความตอบกลับจากร้านใน LINE แสดงว่าข้อความยังไม่ถูกส่ง ให้กดปุ่มด้านบนอีกครั้ง เก็บเลขที่นี้ไว้อ้างอิงเมื่อสอบถามสถานะการจอง']
+    unconfirmed: ['ยังยืนยันไม่ได้ว่าร้านได้รับการจอง','การเชื่อมต่อมีปัญหา กรุณากดปุ่มด้านบน (ระบบคัดลอกการจองให้แล้ว) จากนั้นกดวางและส่งในแชท LINE ของร้าน','ถ้าไม่ได้รับข้อความตอบกลับจากร้าน แสดงว่าร้านยังไม่ได้รับออเดอร์ ให้กดปุ่มด้านบนแล้ววางส่งอีกครั้ง'],
+    link: ['เหลืออีกขั้นเดียว','การจองจะสมบูรณ์เมื่อคุณ<b>กดวางและส่งข้อความในแชท LINE ของร้าน</b> (ระบบคัดลอกให้แล้ว) แล้วร้านจะตอบกลับเพื่อยืนยัน','ถ้าไม่ได้รับข้อความตอบกลับจากร้านใน LINE แสดงว่าข้อความยังไม่ถูกส่ง ให้กดปุ่มด้านบนอีกครั้ง เก็บเลขที่นี้ไว้อ้างอิงเมื่อสอบถามสถานะการจอง']
   }[mode];
   document.getElementById('successTitle').textContent = T[0];
   document.getElementById('successMsg').innerHTML = T[1];
@@ -1336,10 +1336,11 @@ function syncSubmitBtn(){
 }
 document.getElementById('agreeBox').addEventListener('change', syncSubmitBtn);
 syncSubmitBtn();
-const LINE_OA_ID = '@490hytmy';
+const LINE_CONTACT_ID = '0863039620'; // ไลน์ไอดีพนักงานโดยตรง (ไม่ใช่ OA)
+const LINE_CHAT_URL = 'https://line.me/ti/p/~' + LINE_CONTACT_ID;
 // วาง URL ของ Google Apps Script (ลงท้ายด้วย /exec) ระหว่างเครื่องหมายคำพูดด้านล่าง
 // เมื่อใส่แล้ว ออเดอร์จะส่งเข้า LINE ของร้านอัตโนมัติ / ถ้าเว้นว่างไว้ จะใช้ปุ่มเปิดแชท LINE แบบเดิม
-const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzuytTqXWU9DrPjjcZwly5UjEnhrZbSybPS5CM0jyHKWDrZxJWQ52LacellhfLKzRQsAw/exec';
+const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzt9urhRHBeurGDVC3Qto60l6EfXua8gmZnROhE9hbyN87n-ZETE7xAZXlmnKcvfAz1/exec';
 (function(){
   const btn = document.getElementById('submitBtn'), hint = document.getElementById('submitHint');
   if(WEBHOOK_URL){
@@ -1364,9 +1365,9 @@ function summaryText(withTail){
   const body = groups.filter(x=>x[1].length).map(x=>'■ '+x[0]+'\n'+x[1].join('\n'));
   return 'BS Express — สรุปการจอง\n' + head.join('\n') + '\n\n' + body.join('\n\n') + (withTail ? '\n\n(กรุณากดส่งข้อความนี้เพื่อยืนยันการจอง)' : '');
 }
-function openLine(){
-  const url = 'https://line.me/R/oaMessage/'+LINE_OA_ID+'/?'+encodeURIComponent(summaryText());
-  try{ if(!window.open(url,'_blank')) window.location.href = url; }catch(e){ window.location.href = url; }
+function openLine(){ // ไลน์ไอดีส่วนตัวใส่ข้อความล่วงหน้าไม่ได้ → คัดลอกสรุปให้ก่อน แล้วเปิดแชท ให้ลูกค้ากดวางส่ง
+  const go = ()=>{ try{ if(!window.open(LINE_CHAT_URL,'_blank')) window.location.href = LINE_CHAT_URL; }catch(e){ window.location.href = LINE_CHAT_URL; } };
+  try{ navigator.clipboard.writeText(summaryText()).then(go, go); }catch(e){ go(); }
 }
 function copySummary(btn){
   const text = summaryText();
@@ -1508,7 +1509,7 @@ function initPay(){
     }).finally(()=>{ window.slipPending = null; inp.value = ''; syncSubmitBtn(); });
   });
 }
-function chatLine(){ window.open('https://line.me/R/ti/p/'+encodeURIComponent(LINE_OA_ID), '_blank'); }
+function chatLine(){ window.open(LINE_CHAT_URL, '_blank'); }
 function rebook(){ window.location.href = window.location.pathname; }
 initPay();
 
@@ -2049,7 +2050,7 @@ function codCheck(b){const p=cq('cdChkP').value.trim(),m=cq('cdChkM');
   codFetch(p).then(j=>{b.disabled=false;if(j&&j.found){codSave(p);codStatus(j)}else m.textContent='ไม่พบใบสมัครจากเบอร์นี้'})}
 function codStatus(j,note){
   codLast=j;
-  const m={'รอตรวจเอกสาร':['รอร้านตรวจเอกสาร','ไม่ต้องส่งใบสมัครฉบับจริง ร้านพิมพ์เอง · แจ้งผลทาง LINE หรือโทรศัพท์'],'อนุมัติ':['อนุมัติแล้ว','เลือก “เก็บ COD” ตอนจองได้เลย'],'ไม่ผ่าน':['ไม่ผ่าน',j.reason||'กรุณาติดต่อร้านทาง LINE @bsexpress']}[j.status]||[j.status,''];
+  const m={'รอตรวจเอกสาร':['รอร้านตรวจเอกสาร','ไม่ต้องส่งใบสมัครฉบับจริง ร้านพิมพ์เอง · แจ้งผลทาง LINE หรือโทรศัพท์'],'อนุมัติ':['อนุมัติแล้ว','เลือก “เก็บ COD” ตอนจองได้เลย'],'ไม่ผ่าน':['ไม่ผ่าน',j.reason||'กรุณาติดต่อร้านทาง LINE ไอดี 0863039620']}[j.status]||[j.status,''];
   cq('codBody').innerHTML=(note?'<p class="field-hint" style="margin:0 0 10px;color:var(--warn)">'+esc(note)+'</p>':'')+'<p class="pay-status"><b>'+esc(j.code)+' · '+m[0]+'</b><br>'+esc(m[1])+'</p>'+
     (j.status==='ไม่ผ่าน'?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" onclick="codForm()">สมัครใหม่</button>':'<button type="button" class="btn-ghost btn-full" style="margin-top:10px" onclick="codForm()">กรอกใบสมัครใหม่อีกฉบับ</button>')+
     '<div class="nav-row" style="margin-top:12px"><button type="button" class="btn-ghost" onclick="view(\'home\')">หน้าแรก</button>'+(j.status==='อนุมัติ'?'<button type="button" class="btn-primary" onclick="startBooking()">จองรถ</button>':'')+'</div>';
@@ -2081,7 +2082,7 @@ async function codSubmit(){const v=id=>cq(id).value.trim(),e=cq('cdE'),idn=v('cd
   const b=cq('cdGo');b.disabled=true;b.textContent='กำลังส่ง...';let j;
   try{const fm=(await codDraw()).toDataURL('image/jpeg',.88);j=await (await fetch(WEBHOOK_URL,{method:'POST',body:JSON.stringify({action:'cod',type:T==='person'?'บุคคลทั่วไป':'นิติบุคคล',name:v('cdName'),idNo:idn,phone:v('cdPhone'),contact:v('cdContact'),address:v('cdAddr'),bank:v('cdBank'),accNo:v('cdAcc'),accName:v('cdAccN'),consent:true,files:[0,1].map(i=>({label:CL[T][i],data:codF[i].data})).concat({label:'ใบสมัครที่เซ็นอิเล็กทรอนิกส์',data:fm})})})).json()}catch(x){}
   if(j&&(j.ok||j.error==='exists')){codSave(v('cdPhone'));codStatus({code:j.code,status:j.ok?'รอตรวจเอกสาร':j.status},j.ok?'':'เบอร์นี้มีใบสมัครอยู่ในระบบแล้ว จึงยังไม่ได้สร้างใบสมัครใหม่')}
-  else{e.textContent=(j&&j.error)||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง หรือทักไลน์ @bsexpress';b.disabled=false;b.textContent='ส่งใบสมัคร'}}
+  else{e.textContent=(j&&j.error)||'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง หรือทักไลน์ไอดี 0863039620';b.disabled=false;b.textContent='ส่งใบสมัคร'}}
 let sigOn=false;
 function sigInit(){const c=cq('cdSig'),x=c.getContext('2d');let d=false,a=0,b=0;x.lineWidth=3.5;x.lineCap=x.lineJoin='round';x.strokeStyle='#111';
   const P=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
