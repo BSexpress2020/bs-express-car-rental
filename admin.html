@@ -36,11 +36,12 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 <div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
 <input id="pw" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password"><div id="err"></div><button class="btn" style="width:100%" onclick="login()">เข้าสู่ระบบ</button></div></div>
 <div class="wrap" id="app" hidden>
-<div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" id="rf" onclick="loadOrders()">รีเฟรช</button><button class="btn g" onclick="cod()">สมัคร COD</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
-<div id="ts" style="color:var(--soft);font-size:13px;margin:-4px 0 8px"></div><div class="box" id="warn" hidden style="margin-bottom:12px;color:var(--warn);background:#FFF4EE"></div><div class="chips" id="chips"></div><div id="list"></div><div id="cod" hidden></div></div>
+<div class="top"><h1 style="flex:none">ออเดอร์</h1><input id="q" type="search" placeholder="ค้นหา เลขที่จอง / ชื่อ / เบอร์"><button class="btn g" id="rf" onclick="loadOrders()">รีเฟรช</button><button class="btn g" onclick="cod()">สมัคร COD</button><button class="btn g" onclick="fbv()">ข้อเสนอแนะ</button><button class="btn g" onclick="csv()">ส่งออก CSV</button><button class="btn g" onclick="logout()">ออก</button></div>
+<div id="ts" style="color:var(--soft);font-size:13px;margin:-4px 0 8px"></div><div class="box" id="warn" hidden style="margin-bottom:12px;color:var(--warn);background:#FFF4EE"></div><div class="chips" id="chips"></div><div id="list"></div><div id="cod" hidden></div><div id="fb" hidden></div></div>
 <div class="dv" id="dv" role="dialog" aria-modal="true"><div class="bar"><b id="dvT"></b><span><a class="btn g" id="dvO" target="_blank" rel="noopener" hidden>เปิดแท็บใหม่</a><button class="btn g" id="dvP" hidden onclick="window.print()">พิมพ์</button><button class="btn" onclick="dvClose()">ปิด</button></span></div><div class="bd" id="dvB"></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzuytTqXWU9DrPjjcZwly5UjEnhrZbSybPS5CM0jyHKWDrZxJWQ52LacellhfLKzRQsAw/exec';
+const DRV=[['อดิศักดิ์ เจียวสว่าง','ทีม','ขอนแก่น ผล-2234'],['ประสิทธิ์ วิเศษทรัพย์','แบงค์','นครราชสีมา ผว-9667'],['เฉลิมชัย วงษ์หมื่นเนตร','แดง','กทม 3ฒฐ-5403'],['พรศักดิ์ ค่าคง','ติ๋ว','กรุงเทพฯ 2ฒผ-9659'],['สะอาด ศักดี','อาด','กรุงเทพฯ 2ฒฒ 920'],['เก่ง เข็มทอง','เก่ง','กรุงเทพฯ 2ฒภ 772'],['ประจักษ์ อุราสาย','จักร','อุบลฯ ผผ 7314'],['วุฒิชัย สายสมบัติ','วุฒิ','อุบลฯ ผบ-3445'],['กิตติพงษ์ ทองมาก','แซม','กรุงเทพ 3ฒจ-499'],['กมล สุขเกษม','โจ','ปราจีนบุรี บบ-7948'],['วิลาศ บุญทศ','วิลาศ','กรุงเทพฯ 1ฒย-5322'],['ปณิธาน บุญเลิศ','เวฟ','อุบลฯ ผบ 3445'],['ณัฐพล วงศ์กระโซ่','เป้','นครสวรรค์ ผต 3357'],['วัฒนวิจิตร ปวนสุข','ป่าย','กรุงเทพฯ 3ฒบ 7184'],['ปรีชา ทัดวงษ์','เสือ','กรุงเทพฯ 4ฒก-6118'],['ฐาปนา แท่นคำ','หน่อง','1ฒย 3148 กทม.']],drvLabel=d=>d[0]+' ('+d[1]+')'; // รายชื่อคนรถ: [ชื่อจริง, ชื่อเล่น, ทะเบียน] — เพิ่ม/แก้คนรถที่นี่
 // ===== ส่งออกตามแม่แบบ Quickwin (BSOrderTemplate.xlsx) : หัวคอลัมน์ A→AG เรียงตามคู่มือ =====
 const QW_HEAD=['OrderNo','OrderType','BranchCode','OrderDate','ItemDesc','PackagingUnit','Weight','Price','QTY','TotalAmt','CODAmt','OrderRemark','TrackingNo','SndFirstName','SndAddrNo','SndAddTumbon','SndAddrAmphoe','SndAddrProvince','SndPostCode','SndCountry','SndTel','SndTaxID','DestFirstName','DestAddrNo','DestAddTumbon','DestAddrAmphoe','DestAddrProvince','DestPostCode','DestCountry','DestTel','DestTaxID','ExtRefID','SalesPersonID'];
 // ช่องที่คู่มือบอกว่า "ต้องใส่" (O ที่อยู่ผู้ส่งใส่หรือไม่ก็ได้) — ถ้าว่างจะเตือนหลังส่งออก
@@ -104,7 +105,7 @@ async function loadOrders(first){
   try{
     const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);
     const had=new Set(D.map(o=>o.ref)),nw=D.length?j.orders.filter(o=>!had.has(o.ref)).length:0;D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;
-    const old=!ST.includes('รอรถเข้ารับ')||!(j.ver>=3);$('warn').hidden=!old;
+    const old=!ST.includes('รอรถเข้ารับ')||!(j.ver>=4);$('warn').hidden=!old;
     if(old)$('warn').textContent='หลังบ้าน (Apps Script) ยังเป็นโค้ดเก่า — ต้อง Deploy → New version ก่อน ไม่งั้นการตรวจสลิป/ชำระเงิน รูปบิล เลื่อนวันรับ และชื่อคนรถจะไม่ถูกบันทึก';
     render();$('ts').textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH')+' · '+D.length+' ออเดอร์'+(nw?' · ใหม่ '+nw+' รายการ':'');
   }catch(e){
@@ -129,21 +130,22 @@ const toBE=iso=>{const p=iso.split('-');return p[2]+'/'+p[1]+'/'+(+p[0]+543)}; /
 function rsNote(o){
   const nd=esc(o.newDate),rr=esc(o.rsReason);
   return o.rsState==='รอลูกค้าตอบ'?['#7A5200','#FFF4D6','ร้านเสนอเลื่อนเป็น <b>'+nd+'</b> (เหตุผล: '+rr+') — รอลูกค้ากดตอบที่หน้าสถานะ']
-    :o.rsState==='ลูกค้าขอวันอื่น'?['#B5502E','#FDECE7','ลูกค้าไม่สะดวกวัน '+nd+' และขอวันอื่น — ติดต่อลูกค้า แล้วเสนอวันใหม่ด้านล่าง']
+    :o.rsState==='ลูกค้าขอวันอื่น'?['#B5502E','#FDECE7','ลูกค้าไม่สะดวกวัน '+nd+(o.custDate?' และขอเลื่อนเป็น <b>'+esc(fmtD(o.custDate))+'</b> — ตรวจว่ารถเข้าได้ไหม แล้วกด “รับวันที่ลูกค้าขอ” หรือเสนอวันอื่นด้านล่าง':' และขอวันอื่น — ติดต่อลูกค้า แล้วเสนอวันใหม่ด้านล่าง')]
     :o.rsState==='ตกลงแล้ว'?['#1F7A4D','#E6F4EC','เลื่อนวันรับแล้ว (ลูกค้าตกลง)']:null}
 function rsBlock(o,R){
   if(!trkOf(o)||o.status==='รับพัสดุแล้ว')return '';
   const n=rsNote(o),pend=o.rsState==='รอลูกค้าตอบ';
   return '<div class="rs"><b>เลื่อนวันรับ</b> <span style="color:var(--soft)">วันรับปัจจุบัน '+esc(fmtD(o.pickupDate)||'-')+'</span>'+
     (n?'<div class="st" style="color:'+n[0]+';background:'+n[1]+'">'+n[2]+'</div>':'')+
+    (o.rsState==='ลูกค้าขอวันอื่น'&&o.custDate?'<div class="row"><button class="btn" data-ra="'+R+'" style="grid-column:1/-1">รับวันที่ลูกค้าขอ ('+esc(fmtD(o.custDate))+')</button></div>':'')+
     '<div class="row"><input type="date" data-rd="'+R+'" min="'+tmrISO()+'"><input data-rr="'+R+'" placeholder="เหตุผล (ลูกค้าจะเห็น)" maxlength="200"></div>'+
     '<label class="rn"><input type="checkbox" data-rn="'+R+'"> ลูกค้าตกลงแล้ว (คุยทางโทร/แชทแล้ว) เปลี่ยนวันทันที ไม่ต้องรอลูกค้ากดตอบ</label>'+
     '<div class="row"><button class="btn" data-rs="'+R+'">เลื่อนวันรับ</button>'+(pend?'<button class="btn g" data-rc="'+R+'">ถอนข้อเสนอ</button>':'')+'</div>'+
     (pend?'<div class="row"><button class="btn g" data-rm="'+R+'" style="grid-column:1/-1">คัดลอกข้อความส่งลูกค้าทาง LINE (พร้อมลิงก์ตอบ)</button></div>':'')+
     (o.rsLog?'<div class="lg">'+esc(o.rsLog)+'</div>':'')+'</div>'}
 function driverHtml(o,R){
-  if(!trkOf(o))return '';const p=pNP(o.driver);
-  return '<div class="bi">คนรถที่จะเข้ารับ — ลูกค้าจะเห็นชื่อและทะเบียนตอนสถานะ “รอรถเข้ารับ”</div><input data-dn="'+R+'" placeholder="ชื่อคนรถ (ชื่อเล่น)" value="'+esc(p[0])+'"><input data-dp="'+R+'" placeholder="ทะเบียนรถ" value="'+esc(p[1])+'">'}
+  if(!trkOf(o))return '';const p=pNP(o.driver),cur=p[0],known=DRV.some(d=>drvLabel(d)===cur);
+  return '<div class="bi">คนรถที่จะเข้ารับ — เลือกชื่อแล้วทะเบียนขึ้นให้เอง ลูกค้าจะเห็นตอนสถานะ “รอรถเข้ารับ”</div><select data-dn="'+R+'"><option value="">— เลือกคนรถ —</option>'+DRV.map(d=>'<option'+(drvLabel(d)===cur?' selected':'')+'>'+esc(drvLabel(d))+'</option>').join('')+(cur&&!known?'<option selected>'+esc(cur)+'</option>':'')+'</select><input data-dp="'+R+'" placeholder="ทะเบียนรถ" value="'+esc(p[1])+'">'}
 function card(o){
   const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?[/รถมารับ/.test(o.payment||'')?'ชำระแล้ว · คนรถไม่ต้องเก็บเงิน':'ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',fmtD(o.pickupDate)],['คนรถ',o.driver],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['แจ้งโอน',String(o.payLog||'').replace(/\n/g,' | ')],['ค่าพัสดุ (COD)',o.codAmt?'เก็บ COD '+Number(o.codAmt).toLocaleString()+' บาท จากผู้รับ':''],['หมายเหตุ',o.note]].filter(r=>r[1]);
   return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp,RSP(o)?[o.rsState==='รอลูกค้าตอบ'?'รอลูกค้าตอบวันใหม่':'ลูกค้าขอวันอื่น',o.rsState==='รอลูกค้าตอบ'?'#9A6B00':'#B5502E',o.rsState==='รอลูกค้าตอบ'?'#FFF4D6':'#FDECE7']:null,o.codAmt?['COD '+Number(o.codAmt).toLocaleString(),'#B5502E','#FDECE7']:null].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
@@ -158,23 +160,25 @@ function render(){
   document.querySelectorAll('#list [data-b],#list [data-dn],#list [data-dp],#list [data-rd],#list [data-rr],#list [data-rn],#list [data-s]').forEach(e=>{const k=dkey(e);if(k in DR){if(e.type==='checkbox')e.checked=!!DR[k];else e.value=DR[k]}}); // คืนค่าที่พิมพ์/เลือกค้างไว้ (เลขบิล คนรถ วันเลื่อน เหตุผล สถานะ)
   Object.keys(BI).forEach(r=>{const m=document.querySelector('[data-m="'+r+'"]');if(m)m.textContent='เลือกรูปบิลแล้ว ✓ (กด “บันทึก” เพื่ออัปโหลด)'});
 }
+async function saveCard(r,auto){ // auto=true: เปลี่ยนสถานะจากเมนูแล้วบันทึกเลย (ไม่ต้องกดปุ่ม) / ปุ่ม “บันทึก” ยังใช้ได้เหมือนเดิม
+  const o=D.find(x=>x.ref===r),q=k=>document.querySelector('[data-'+k+'="'+r+'"]'),sv=q('save'),sel=q('s'),b=q('b').value.trim(),dnE=q('dn'),dpE=q('dp'),dn=dnE?dnE.value.trim():'',dp=dpE?dpE.value.trim():'',back=()=>{if(auto){sel.value=o.status;delete DR['s:'+r]}};
+  let s=sel.value;const hasImg=!!(BI[r]||o.billImg);
+  if(!auto&&b&&hasImg&&(s===ST[0]||s===ST[1]))s=ST[2]; // มีทั้งเลขบิลและรูปบิล -> "รอรถเข้ารับ" ให้เอง (เจ้าหน้าที่ตรวจเลขแล้วกดบันทึก)
+  const w=[]; // เตือนก่อนบันทึก (ไม่บล็อก ให้เจ้าหน้าที่ตัดสินใจเอง)
+  if(s!==o.status){
+    if((s===ST[2]||s===ST[3])&&!b)w.push('• ยังไม่ได้กรอกเลขบิล/เลขแทรค');
+    if(s===ST[2]){
+      if(dnE&&!dn)w.push('• ยังไม่ได้เลือกคนรถ (ลูกค้าจะไม่เห็นว่าใครมารับ)');
+      if(o.slipCheck==='ไม่ผ่าน')w.push('• สลิปยังไม่ถูกต้อง');
+      else if(/ชำระก่อน/.test(o.payment||'')&&o.slipCheck!=='ผ่าน')w.push('• ออเดอร์ชำระก่อนเรียกรถ แต่สลิปยังไม่ผ่านการตรวจ')}}
+  if(w.length&&!confirm(w.join('\n')+'\n\nบันทึกต่อไหม?')){back();return}
+  sv.disabled=true;sel.disabled=true;sv.textContent='กำลังบันทึก...';
+  try{const j=await api({action:'update',ref:r,status:s,bill:b,billImgData:BI[r]||'',driver:dnE?(dn||dp?dn+' • '+dp:''):undefined});if(!j.ok)throw new Error(j.error);o.status=s;o.bill=b;if(j.billImg)o.billImg=j.billImg;Object.assign(o,j.patch||{});delete BI[r];dclear(r,['b','s','dn','dp']);OPEN[r]=1;render()}
+  catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);sv.disabled=false;sel.disabled=false;sv.textContent='บันทึก';back()}}
 document.addEventListener('click',async e=>{
-  const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]'),rs=t.closest('[data-rs]'),rc=t.closest('[data-rc]'),rm=t.closest('[data-rm]');
+  const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]'),rs=t.closest('[data-rs]'),rc=t.closest('[data-rc]'),rm=t.closest('[data-rm]'),ra=t.closest('[data-ra]');
   if(f){F=f.dataset.f;render()}
-  else if(sv){const r=sv.dataset.save,o=D.find(x=>x.ref===r),q=k=>document.querySelector('[data-'+k+'="'+r+'"]'),b=q('b').value.trim(),dnE=q('dn'),dpE=q('dp'),dn=dnE?dnE.value.trim():'',dp=dpE?dpE.value.trim():'';
-    let s=q('s').value;const hasImg=!!(BI[r]||o.billImg);
-    if(b&&hasImg&&(s===ST[0]||s===ST[1]))s=ST[2]; // มีทั้งเลขบิลและรูปบิล -> "รอรถเข้ารับ" ให้เอง (เจ้าหน้าที่ตรวจเลขแล้วกดบันทึก)
-    const w=[]; // เตือนก่อนบันทึก (ไม่บล็อก ให้เจ้าหน้าที่ตัดสินใจเอง)
-    if(s!==o.status){
-      if((s===ST[2]||s===ST[3])&&!b)w.push('• ยังไม่ได้กรอกเลขบิล/เลขแทรค');
-      if(s===ST[2]){
-        if(dnE&&!dn)w.push('• ยังไม่ได้กรอกชื่อคนรถ (ลูกค้าจะไม่เห็นว่าใครมารับ)');
-        if(o.slipCheck==='ไม่ผ่าน')w.push('• สลิปยังไม่ถูกต้อง');
-        else if(/ชำระก่อน/.test(o.payment||'')&&o.slipCheck!=='ผ่าน')w.push('• ออเดอร์ชำระก่อนเรียกรถ แต่สลิปยังไม่ผ่านการตรวจ')}}
-    if(w.length&&!confirm(w.join('\n')+'\n\nบันทึกต่อไหม?'))return;
-    sv.disabled=true;sv.textContent='กำลังบันทึก...';
-    try{const j=await api({action:'update',ref:r,status:s,bill:b,billImgData:BI[r]||'',driver:dnE?(dn||dp?dn+' • '+dp:''):undefined});if(!j.ok)throw new Error(j.error);o.status=s;o.bill=b;if(j.billImg)o.billImg=j.billImg;Object.assign(o,j.patch||{});delete BI[r];dclear(r,['b','s','dn','dp']);OPEN[r]=1;render()}
-    catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);sv.disabled=false;sv.textContent='บันทึก'}}
+  else if(sv){saveCard(sv.dataset.save,false)}
   else if(rs){const r=rs.dataset.rs,o=D.find(x=>x.ref===r),q=k=>document.querySelector('[data-'+k+'="'+r+'"]'),d=q('rd').value,why=q('rr').value.trim(),now=q('rn').checked;
     if(!d){alert('เลือกวันที่รับใหม่ก่อน');return}
     if(d<tmrISO()){alert('วันที่รับใหม่ต้องเป็นวันพรุ่งนี้เป็นต้นไป');return}
@@ -185,6 +189,9 @@ document.addEventListener('click',async e=>{
     rs.disabled=true;rs.textContent='กำลังบันทึก...';
     try{const j=await api({action:'resched',ref:r,mode:now?'now':'offer',newDate:nd,reason:why});if(!j.ok)throw new Error(j.error);Object.assign(o,j.patch||{});dclear(r,['rd','rr','rn']);OPEN[r]=1;render()}
     catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);rs.disabled=false;rs.textContent='เลื่อนวันรับ'}}
+  else if(ra){const r=ra.dataset.ra,o=D.find(x=>x.ref===r),nd=fmtD(o.custDate);if(!confirm('เปลี่ยนวันรับเป็น '+nd+' ตามที่ลูกค้าขอ?\nวันรับจะเปลี่ยนทันที'))return;
+    ra.disabled=true;try{const j=await api({action:'resched',ref:r,mode:'now',newDate:nd,reason:'ตามที่ลูกค้าขอ'});if(!j.ok)throw new Error(j.error);Object.assign(o,j.patch||{});OPEN[r]=1;render()}
+    catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);ra.disabled=false}}
   else if(rc){const r=rc.dataset.rc,o=D.find(x=>x.ref===r);if(!confirm('ถอนข้อเสนอเลื่อนวันรับของ '+r+'?'))return;
     rc.disabled=true;try{const j=await api({action:'resched',ref:r,mode:'clear'});if(!j.ok)throw new Error(j.error);Object.assign(o,j.patch||{});OPEN[r]=1;render()}
     catch(x){alert('ถอนไม่สำเร็จ: '+x.message);rc.disabled=false}}
@@ -195,7 +202,8 @@ document.addEventListener('click',async e=>{
   else if(h&&!t.closest('input,select,button')){const r=h.dataset.t;OPEN[r]=!OPEN[r];h.nextElementSibling.hidden=!OPEN[r]}
 });
 document.addEventListener('change',async e=>{
-  const t=e.target,r=t.dataset.sc||t.dataset.bi||t.dataset.pd||t.dataset.pk;if(!r)return;const o=D.find(x=>x.ref===r);
+  const t=e.target;if(t.dataset.s){saveCard(t.dataset.s,true);return}
+  const r=t.dataset.sc||t.dataset.bi||t.dataset.pd||t.dataset.pk;if(!r)return;const o=D.find(x=>x.ref===r);
   if(t.dataset.sc){const v=t.checked?t.value:'',prev=o.slipCheck||'',
       pd=v==='ผ่าน'?PAID:(v==='ไม่ผ่าน'||prev==='ผ่าน')?'':undefined; // ผ่าน -> ชำระแล้ว / ไม่ผ่าน หรือเลิกติ๊กถูกต้อง -> ยังไม่ได้รับเงินทางสลิป จึงเอา "ชำระแล้ว" ออกด้วย
     let st; // ถูกต้อง -> ยืนยันแล้ว · รอเลขบิล / ไม่ถูกต้อง -> รอร้านยืนยัน (ลูกค้าเห็นให้ส่งสลิปใหม่) / เอาติ๊กออก -> รอร้านยืนยัน
@@ -222,6 +230,8 @@ document.addEventListener('change',async e=>{
       else say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขพัสดุจากรูปไม่ได้ — กรอกเลขเอง แล้วกด “บันทึก”')}
     catch(x){say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขอัตโนมัติไม่ได้ ('+esc(x.message)+') — กรอกเลขเอง แล้วกด “บันทึก”')}}
 });
+// เลือกคนรถ -> ใส่ทะเบียนให้เอง (แก้ทะเบียนเองต่อได้)
+document.addEventListener('change',e=>{const t=e.target,r=t.dataset.dn;if(!r)return;const d=DRV.find(x=>drvLabel(x)===t.value),i=document.querySelector('[data-dp="'+r+'"]');if(i){if(d)i.value=d[2];else if(!t.value)i.value='';DR['dp:'+r]=i.value}});
 $('q').addEventListener('input',render);
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 function csv(){
@@ -238,9 +248,18 @@ function csv(){
   const sk=all.length-a.length;
   if(bad.length||sk)setTimeout(()=>alert('ส่งออก '+a.length+' ออเดอร์'+(sk?'\n(ข้าม '+sk+' รายการที่ยกเลิก/มีบิลแล้ว)':'')+(bad.length?'\n\nข้อมูลยังไม่ครบ ต้องเติมในไฟล์ก่อนอัพโหลด:\n'+bad.slice(0,10).join('\n')+(bad.length>10?'\n...อีก '+(bad.length-10)+' ออเดอร์':''):'')),300);
 }
+// ===== ข้อเสนอแนะจากลูกค้า =====
+let FB=[];
+async function fbv(){const on=$('fb').hidden;$('fb').hidden=!on;$('cod').hidden=true;['list','chips','ts'].forEach(i=>$(i).hidden=on);if(on)await loadFb()}
+async function loadFb(){$('fb').innerHTML='<p class="empty">กำลังโหลด...</p>';try{const j=await api({action:'fbList'});if(!j.ok)throw new Error(j.error);FB=j.items;renderFb()}catch(e){$('fb').innerHTML='<p class="empty">โหลดไม่สำเร็จ ('+esc(e.message)+') — ถ้ายังไม่ได้ Deploy โค้ดใหม่ ให้ Deploy → New version ก่อน</p>'}}
+function renderFb(){
+  const n=FB.length,avg=n?(FB.reduce((a,f)=>a+(+f.rating||0),0)/n).toFixed(1):'-';
+  $('fb').innerHTML='<div class="box" style="margin-bottom:10px"><b>คะแนนเฉลี่ย '+avg+' / 5</b> <span style="color:var(--soft)">จาก '+n+' ความเห็น</span></div>'+(n?FB.map(f=>{const k=Math.max(0,Math.min(5,+f.rating||0));
+    return '<div class="o"><div class="hd"><div class="r1"><b style="color:#E0A100">'+'★'.repeat(k)+'<span style="color:#C9CED6">'+'★'.repeat(5-k)+'</span></b><span class="pill" style="color:#1D5FBF;background:#E6F0FD">'+esc(f.type||'อื่น ๆ')+'</span></div>'+
+    (f.msg?'<div style="white-space:pre-wrap;margin-top:6px">'+esc(f.msg)+'</div>':'')+'<div class="sub" style="margin-top:4px"><span>'+(f.contact?'ติดต่อ: '+esc(f.contact):'ไม่ระบุผู้ติดต่อ')+'</span><span>'+when(f.createdAt)+'</span></div></div></div>'}).join(''):'<p class="empty">ยังไม่มีข้อเสนอแนะ</p>')}
 // ===== ใบสมัคร COD =====
 let CA=[];const CCOL={'รอตรวจเอกสาร':['#9A6B00','#FFF4D6'],'อนุมัติ':['#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['#B5502E','#FDECE7']};
-async function cod(){const on=$('cod').hidden;$('cod').hidden=!on;['list','chips','ts'].forEach(i=>$(i).hidden=on);if(on)await loadCod()}
+async function cod(){const on=$('cod').hidden;$('fb').hidden=true;$('cod').hidden=!on;['list','chips','ts'].forEach(i=>$(i).hidden=on);if(on)await loadCod()}
 async function loadCod(){$('cod').innerHTML='<p class="empty">กำลังโหลด...</p>';try{const j=await api({action:'codList'});if(!j.ok)throw new Error(j.error);CA=j.apps;renderCod()}catch(e){$('cod').innerHTML='<p class="empty">โหลดไม่สำเร็จ ('+esc(e.message)+') — ถ้ายังไม่ได้ Deploy โค้ดใหม่ ให้ Deploy → New version ก่อน</p>'}}
 function renderCod(){$('cod').innerHTML=CA.length?CA.map(a=>{const c=CCOL[a.status]||CCOL['รอตรวจเอกสาร'],R=esc(a.code),
   kv=[['ประเภท',a.type],['เลขบัตร/ทะเบียน',a.idNo],['เบอร์',a.phone],['ติดต่อ',a.contact],['ที่อยู่',a.address],['บัญชี',a.bank+' '+a.accNo],['ชื่อบัญชี',a.accName]],
