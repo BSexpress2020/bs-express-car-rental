@@ -1548,17 +1548,59 @@ let histPhone = null;   // ผลค้นหาจากระบบด้ว�
 const TRACK_URL = 'https://www.bsgroupth.com/check-qw-status';   // เว็บหลักสำหรับติดตามพัสดุหลังรถรับของแล้ว
 const digits = s => String(s||'').replace(/\D/g,'');
 const fmtPd=v=>{const m=/^\d{4}-\d\d-\d\dT/.test(String(v||''));if(!m)return v;const t=new Date(new Date(v).getTime()+7*36e5),p=n=>String(n).padStart(2,'0');return p(t.getUTCDate())+'/'+p(t.getUTCMonth()+1)+'/'+t.getUTCFullYear()}; // ชีตแปลง "20/10/2569" เป็นวันที่ ทำให้ได้ ISO กลับมา -> แปลงกลับเป็น วว/ดด/ปปปป
-const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:o.paid?1:0, to:o.receiver||'', date:fmtPd(o.pickupDate||''), dest:o.dest||'', pay:o.payment||''});
+const mapRow = o => ({ref:o.ref, t:Date.parse(o.createdAt)||Date.now(), total:o.total||0, st:o.status||'รอร้านยืนยัน', bill:o.bill||'', bi:o.billImg||'', sc:o.slipCheck||'', sl:o.hasSlip?1:0, pd:(o.paid&&o.slipCheck!=='ไม่ผ่าน')?1:0, to:o.receiver||'', date:fmtPd(o.pickupDate||''), dest:o.dest||'', pay:o.payment||'', py:o.payer||'', dv:o.driver||'', rs:o.rsState||'', nd:fmtPd(o.newDate||''), rr:o.rsReason||''});
 function findH(ref){ return ((histPhone&&histPhone.rows)||[]).concat(getHist()).find(h=>h.ref===ref); }
 // สลิป = สถานะแยกจากขั้นตอนรับพัสดุ
 function slipInfo(x){ return !x.sl||(x.sc==='ผ่าน'&&x.pd)?null : x.sc==='ผ่าน'?['สลิปถูกต้อง ✓','#1F7A4D','#E6F4EC'] : x.sc==='ไม่ผ่าน'?['สลิปไม่ถูกต้อง','#B5502E','#FDECE7'] : ['สลิปรอร้านตรวจ','#9A6B00','#FFF4D6']; }
 // บิลนี้ชำระแล้ว / ยังไม่ชำระ (แสดงเมื่อมีเลขบิลแล้ว)
-function payInfo(x){ return x.pd?['ชำระแล้ว ✓','#1F7A4D','#E6F4EC']:x.bill?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null; }
+// สลิปไม่ถูกต้อง = ยังไม่ได้รับเงิน จึงไม่นับว่าชำระแล้ว / ผู้รับจ่ายค่าขนส่งปลายทาง = ผู้ส่งไม่มียอดค้างชำระ
+const pdOf = x => !!(x.pd && x.sc !== 'ไม่ผ่าน');
+const isRcv = x => /ปลายทาง/.test(x.pay || '');
+const isDrop = x => /มาส่งเอง/.test((x.py || '') + (x.date || ''));
+function payInfo(x){ return pdOf(x)?['ชำระแล้ว ✓','#1F7A4D','#E6F4EC']:isRcv(x)?(x.bill?['ผู้รับจ่ายปลายทาง','#475467','#F2F4F7']:null):x.bill?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null; }
+// ชื่อ + ทะเบียนคนรถ (หลังบ้านส่งมาเฉพาะตอนสถานะ "รอรถเข้ารับ") — ให้ลูกค้าตรวจก่อนมอบพัสดุ
+function drv(x, i){
+  if(i.g === 'cancel' || i.g === 'done' || isDrop(x) || !/รอรถ|พร้อมเข้ารับ/.test(x.st || '') || !x.dv) return '';
+  const p = String(x.dv), k = p.lastIndexOf('•'), nm = (k < 0 ? p : p.slice(0, k)).trim(), pl = (k < 0 ? '' : p.slice(k + 1)).trim();
+  if(!nm && !pl) return '';
+  return '<div class="pay-status" style="background:#EFEAFB;color:#4B3796"><b>คนรถที่จะเข้ารับ</b><br>'+(nm?'ชื่อ <b>'+esc(nm)+'</b>':'')+(nm&&pl?' · ':'')+(pl?'ทะเบียน <b>'+esc(pl)+'</b>':'')+'<br><small>ตรวจชื่อและทะเบียนให้ตรงก่อนมอบพัสดุ ถ้าไม่ตรง ทักไลน์ร้านก่อน</small></div>';
+}
+// ร้านขอเลื่อนวันรับ: ตกลง / ขอวันอื่น / ยกเลิกการจอง
+function rsBanner(x, i){
+  if(i.g === 'cancel' || i.g === 'done') return '';
+  const R = esc(x.ref), btn = (c, t, cls, st) => '<button type="button" class="'+cls+'" '+(st?'style="'+st+'" ':'')+'data-ref="'+R+'" data-c="'+c+'" onclick="rsAnswer(this.dataset.ref,this.dataset.c)">'+t+'</button>';
+  if(x.rs === 'รอลูกค้าตอบ' && x.nd)
+    return '<div class="pay-status" style="background:#FFF4D6;color:#7A5200"><b>ร้านขอเลื่อนวันรับพัสดุ</b><br>จาก <s>'+esc(x.date||'-')+'</s> เป็น <b>'+esc(x.nd)+'</b>'+(x.rr?'<br>เหตุผล: '+esc(x.rr):'')+'</div>'+
+      btn('ตกลง', 'ตกลง เลื่อนเป็น '+esc(x.nd), 'btn-primary btn-full', 'margin-top:8px')+
+      '<div class="nav-row">'+btn('ขอวันอื่น', 'ขอวันอื่น', 'btn-ghost')+btn('ยกเลิก', 'ยกเลิกการจอง', 'btn-ghost', 'color:var(--warn)')+'</div>';
+  if(x.rs === 'ลูกค้าขอวันอื่น')
+    return '<div class="pay-status" style="background:#F6F7F9">แจ้งร้านแล้วว่าขอเลื่อนเป็นวันอื่น ร้านจะติดต่อกลับ ทักไลน์ร้านเพื่อบอกวันที่สะดวกได้เลย</div>';
+  return '';
+}
+async function rsAnswer(ref, ch){
+  if(ch === 'ยกเลิก' && !confirm('ยืนยันยกเลิกการจองนี้?')) return;
+  const x = findH(ref); if(!x) return;
+  let j = null;
+  try{ const r = await fetch(WEBHOOK_URL, {method:'POST', body: JSON.stringify({action:'rs', ref:ref, choice:ch})}); j = await r.json(); }catch(e){}
+  if(j && j.ok){
+    const apply = y => { if(!y) return;
+      if(ch === 'ตกลง'){ y.date = fmtPd(j.pickupDate || y.nd || y.date); y.rs = 'ตกลงแล้ว'; }
+      else if(ch === 'ขอวันอื่น') y.rs = 'ลูกค้าขอวันอื่น';
+      else { y.st = 'ยกเลิก'; y.rs = 'ลูกค้ายกเลิก'; }
+      y.nd = ''; y.rr = ''; };
+    const a = getHist(); apply(a.find(h => h.ref === ref)); putHist(a);
+    apply(((histPhone && histPhone.rows) || []).find(h => h.ref === ref));
+    renderHist(); if(histPhone) renderOther();
+    openRow(ref, ch === 'ตกลง' ? 'ตกลงแล้ว วันรับพัสดุเปลี่ยนเป็น '+(findH(ref).date||'')+' ร้านได้รับแจ้งแล้ว' : ch === 'ขอวันอื่น' ? 'แจ้งร้านแล้ว ร้านจะติดต่อกลับเพื่อนัดวันใหม่' : 'ยกเลิกการจองแล้ว ร้านได้รับแจ้งแล้ว');
+    return;
+  }
+  openRow(ref, (j && j.error === 'closed') ? 'ข้อเสนอนี้ถูกตอบไปแล้วหรือร้านถอนไปแล้ว กด “เช็คสถานะ” เพื่ออัปเดต' : 'ส่งคำตอบไม่สำเร็จ ลองใหม่อีกครั้ง หรือทักไลน์ร้าน', true);
+}
 function hRow(x){
   const i=infoOf(x), s=slipInfo(x), d=x.date?'รับ '+esc(x.date):'จอง '+esc(new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'short'}));
   return '<button type="button" class="hc" style="--c:'+i.c+'" data-ref="'+esc(x.ref)+'" onclick="openRow(this.dataset.ref)"><div class="hc-top"><span><small class="hc-k">เลขที่จอง</small><b>'+esc(x.ref)+'</b></span><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
     (x.to?'<div class="hc-to">ถึง '+esc(x.to)+'</div>':'')+'<div class="hc-meta"><span>'+d+'</span><b>'+(x.total?Number(x.total).toLocaleString()+' บาท':'-')+'</b></div>'+
-    (i.g==='cancel'?'':'<div class="hc-meta" style="margin-top:4px"><span>เลขบิล '+(x.bill?'<b style="font-size:14px">'+esc(x.bill)+'</b>':'<em>รอเจ้าหน้าที่ออกให้</em>')+'</span>'+'<span>'+[s,payInfo(x)].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+';margin-left:4px">'+p[0]+'</span>':'').join('')+'</span></div>')+
+    (i.g==='cancel'?'':'<div class="hc-meta" style="margin-top:4px"><span>เลขบิล '+(x.bill?'<b style="font-size:14px">'+esc(x.bill)+'</b>':'<em>รอเจ้าหน้าที่ออกให้</em>')+'</span>'+'<span>'+[s,payInfo(x),x.rs==='รอลูกค้าตอบ'?['ร้านขอเลื่อนวันรับ','#9A6B00','#FFF4D6']:null].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+';margin-left:4px">'+p[0]+'</span>':'').join('')+'</span></div>')+
     '<div class="hc-bar">'+[1,2,3,4].map(k=>'<i'+(k<=i.lv?' on':'')+'></i>').join('')+'</div></button>';
 }
 function renderHist(){   // เฉพาะรายการในเครื่องนี้
@@ -1578,17 +1620,18 @@ function renderOther(msg){   // ผลค้นหาจากระบบ (ไ�
   document.getElementById('otherList').innerHTML = P && !rows.length ? '<div class="h-empty">'+(P.ref ? 'ไม่พบเลขที่จองนี้ ตรวจตัวอักษรอีกครั้ง' : 'ไม่พบการจองจากเบอร์นี้')+'</div>' : rows.map(hRow).join('');
 }
 function keepRow(ref){ const x = findH(ref); if(!x) return; putHist([x].concat(getHist().filter(h=>h.ref !== ref))); closeRow(); renderHist(); hTab('local'); document.getElementById('histMsg').textContent = 'เก็บไว้ในเครื่องนี้แล้ว'; }
-function openRow(ref){
+function openRow(ref, note, bad){
   const x=findH(ref); if(!x) return;
   const i=infoOf(x), R=esc(x.ref), s=slipInfo(x), m=/\/d\/([^/]+)/.exec(x.bi||''); let d=''; try{ d=new Date(x.t).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}); }catch(e){}
   const kv=[['วันที่จอง',d],['วันที่รับ',x.date],['ยอดประมาณการ',x.total?Number(x.total).toLocaleString()+' บาท':''],['ชำระเงิน',x.pay],['ผู้รับ',x.to],['พัสดุ',x.items],['ปลายทาง',x.dest]].filter(r=>r[1]);
-  const steps=['ส่งการจองแล้ว','ร้านยืนยันการจอง','รอรถเข้ารับพัสดุ','รับพัสดุแล้ว'];
+  const steps=['ส่งการจองแล้ว','ร้านยืนยันการจอง',isDrop(x)?'รอรับพัสดุที่จุดรับ':'รอรถเข้ารับพัสดุ','รับพัสดุแล้ว'];
   document.getElementById('hDr').innerHTML=
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><h2 style="margin:0;font-size:18px;">'+R+'</h2><span class="pill" style="color:'+i.c+';background:'+i.b+'">'+esc(x.st||'รอร้านยืนยัน')+'</span></div>'+
     '<div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b style="font-weight:600">'+esc(r[1])+'</b>').join('')+'</div>'+
+    (note?'<p class="pay-status" style="background:'+(bad?'#FDECE7;color:#B5502E':'#E6F4EC;color:#1F7A4D')+'">'+esc(note)+'</p>':'')+rsBanner(x,i)+drv(x,i)+
     (s?'<p class="pay-status" style="background:'+s[2]+';color:'+s[1]+'">'+s[0]+(x.sc==='ไม่ผ่าน'?' — ส่งสลิปใหม่ได้ที่ปุ่มด้านล่าง หรือทักไลน์ร้านถ้าต้องการเปลี่ยนวิธีชำระ':'')+'</p>':'')+
-    (!x.pd&&i.g!=='cancel'&&(x.sc==='ไม่ผ่าน'||/รถมารับ/.test(x.pay||''))?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" data-ref="'+R+'" onclick="openPaySheet(this.dataset.ref)">'+(x.sc==='ไม่ผ่าน'?'ส่งสลิปใหม่':'โอนเข้าบัญชีบริษัท')+'</button>':'')+
-    (i.g==='cancel'?'':'<div class="pay-status" style="background:#F6F7F9"><small>เลขที่จอง ('+R+') ใช้อ้างอิงการจองเท่านั้น ส่วนเลขบิลเจ้าหน้าที่จะออกให้หลังร้านยืนยัน</small><br>เลขบิล: '+(x.bill?'<b>'+esc(x.bill)+'</b> <button type="button" class="copy-btn" data-b="'+esc(x.bill)+'" onclick="copyText(this,this.dataset.b)">คัดลอก</button>':'<b>รอเจ้าหน้าที่ออกเลขบิล</b>')+(x.pd?'<br>การชำระเงิน: <b style="color:#1F7A4D">บิลนี้ชำระแล้ว ✓</b>':x.bill?'<br>การชำระเงิน: <b style="color:#9A6B00">บิลนี้ยังไม่ได้ชำระ</b>'+(x.sl||i.g==='done'?'':'<br><small>ชำระกับคนรถได้ตามปกติ หรือถ้าอยากโอนเข้าบัญชีบริษัทแทน ทักไลน์ร้านก่อนรถเข้ารับ</small>'):'')+'</div>')+
+    (!pdOf(x)&&i.g!=='cancel'&&(x.sc==='ไม่ผ่าน'||/รถมารับ/.test(x.pay||''))?'<button type="button" class="btn-primary btn-full" style="margin-top:10px" data-ref="'+R+'" onclick="openPaySheet(this.dataset.ref)">'+(x.sc==='ไม่ผ่าน'?'ส่งสลิปใหม่':'โอนเข้าบัญชีบริษัท')+'</button>':'')+
+    (i.g==='cancel'?'':'<div class="pay-status" style="background:#F6F7F9"><small>เลขที่จอง ('+R+') ใช้อ้างอิงการจองเท่านั้น ส่วนเลขบิลเจ้าหน้าที่จะออกให้หลังร้านยืนยัน</small><br>เลขบิล: '+(x.bill?'<b>'+esc(x.bill)+'</b> <button type="button" class="copy-btn" data-b="'+esc(x.bill)+'" onclick="copyText(this,this.dataset.b)">คัดลอก</button>':'<b>รอเจ้าหน้าที่ออกเลขบิล</b>')+(pdOf(x)?'<br>การชำระเงิน: <b style="color:#1F7A4D">บิลนี้ชำระแล้ว ✓</b>':isRcv(x)?(x.bill?'<br>การชำระเงิน: <b>ผู้รับชำระค่าขนส่งที่ปลายทาง</b>':''):x.bill?'<br>การชำระเงิน: <b style="color:#9A6B00">บิลนี้ยังไม่ได้ชำระ</b>'+(/รถมารับ/.test(x.pay||'')&&!x.sl&&i.g!=='done'?'<br><small>ชำระกับคนรถได้ตามปกติ หรือโอนเข้าบัญชีบริษัทแทนได้ที่ปุ่มด้านบน</small>':''):'')+'</div>')+
     (m?'<a href="'+esc(x.bi)+'" target="_blank" rel="noopener" style="display:block;margin-top:10px;font-size:13px"><img src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w400" alt="" style="max-width:100%;border-radius:10px;border:1px solid var(--line)"><br>เปิดรูปบิล</a>':'')+
     (i.g==='cancel'?'<p style="color:var(--warn);font-size:13.5px;">การจองนี้ถูกยกเลิก</p>':steps.map((t,k)=>'<div class="stp'+(k<i.lv?' on':'')+'"><span></span>'+t+'</div>').join(''))+
     (i.g==='done'?'<p class="pay-status">พัสดุอยู่ในขั้นตอนขนส่งแล้ว ติดตามต่อที่เว็บหลักด้วยเลขบิลของคุณ</p>'+(TRACK_URL?'<a class="btn-primary btn-full" href="'+TRACK_URL+'" target="_blank" rel="noopener" style="display:block;box-sizing:border-box;text-align:center;text-decoration:none;font-weight:600;font-size:15px;border-radius:10px;padding:13px 18px;margin-top:8px">ไปติดตามพัสดุที่เว็บหลัก</a>':''):'')+(getHist().some(h=>h.ref===x.ref)?'':'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="keepRow(this.dataset.ref)">เก็บไว้ในเครื่องนี้</button>')+(x.snap?'<button type="button" class="btn-primary btn-full" style="margin-top:16px" data-ref="'+R+'" onclick="rebookFrom(this.dataset.ref)">จองซ้ำ (ใช้ข้อมูลเดิม)</button>':'')+
@@ -1631,8 +1674,8 @@ async function psSend(){
   let j = null;
   try{ const r = await fetch(WEBHOOK_URL, {method:'POST', body: JSON.stringify({action:'slip', ref:_ps.ref, amount:amt, slip:{data:_ps.data}})}); j = await r.json(); }catch(e){}
   if(j && j.ok){
-    const a = getHist(), y = a.find(h => h.ref === _ps.ref); if(y){ y.sl = 1; y.sc = ''; putHist(a); }
-    const z = ((histPhone && histPhone.rows) || []).find(h => h.ref === _ps.ref); if(z){ z.sl = 1; z.sc = ''; }
+    const a = getHist(), y = a.find(h => h.ref === _ps.ref); if(y){ y.sl = 1; y.sc = ''; y.pd = 0; putHist(a); }
+    const z = ((histPhone && histPhone.rows) || []).find(h => h.ref === _ps.ref); if(z){ z.sl = 1; z.sc = ''; z.pd = 0; }
     renderHist();
     $('hDr').innerHTML = '<h2 style="margin:0 0 8px;font-size:18px">ส่งสลิปแล้ว ✓</h2><p class="pay-status">ร้านได้รับสลิปแจ้งโอนแล้ว กำลังตรวจสอบและจะยืนยันกลับทาง LINE หรือโทรศัพท์ เมื่อร้านตรวจสลิปผ่าน คนรถไม่ต้องเก็บเงิน</p><button type="button" class="btn-ghost btn-full" onclick="closeRow()">ปิด</button>';
     return;
@@ -1656,7 +1699,7 @@ async function refreshHist(btn){
   let ok = 0;
   for(const x of a.slice(0,10)){ if(infoOf(x).g==='cancel'||(infoOf(x).g==='done'&&(x.pd||!x.bill))) continue;
     const j = await fetchStatus(x.ref);
-    if(j && j.found){ x.st = j.status || x.st; x.bill = j.bill || ''; x.bi = j.billImg || ''; x.sc = j.slipCheck || ''; if(j.hasSlip) x.sl = 1; x.pd = j.paid ? 1 : 0; if(j.total) x.total = j.total; ok++; }
+    if(j && j.found){ x.st = j.status || x.st; x.bill = j.bill || ''; x.bi = j.billImg || ''; x.sc = j.slipCheck || ''; if(j.hasSlip) x.sl = 1; x.pd = (j.paid && j.slipCheck !== 'ไม่ผ่าน') ? 1 : 0; x.py = j.payer || x.py || ''; x.dv = j.driver || ''; x.rs = j.rsState || ''; x.nd = fmtPd(j.newDate || ''); x.rr = j.rsReason || ''; if(j.pickupDate) x.date = fmtPd(j.pickupDate); if(j.total) x.total = j.total; ok++; }
   }
   putHist(a); renderHist();
   msg.textContent = ok ? 'อัปเดตสถานะแล้ว '+ok+' รายการ' : 'ยังเช็คสถานะอัตโนมัติไม่ได้ ทักไลน์ร้านพร้อมแจ้งเลขที่จองได้เลย';
@@ -1911,9 +1954,17 @@ setMinPickupDate();
 addItemRow();
 prefillFromQuery();
 updateProgress();
+async function deepRef(ref){   // ลิงก์ ?ref=เลขที่จอง (ร้านส่งให้ลูกค้าทาง LINE) -> เปิดหน้าสถานะของออเดอร์นั้นทันที
+  const v = String(ref).trim().toUpperCase().slice(0, 40);
+  openHist(); hTab('other'); document.getElementById('hp').value = v; renderOther('กำลังเปิดสถานะ...');
+  const j = await fetchStatus(v);
+  if(j && j.found){ histPhone = {phone:v, rows:[mapRow(Object.assign({ref:v}, j))], ref:true}; renderOther(); openRow(v); }
+  else { histPhone = null; renderOther(j ? 'ไม่พบเลขที่จองนี้ ตรวจลิงก์อีกครั้ง หรือทักไลน์ร้าน' : 'เปิดสถานะไม่ได้ในตอนนี้ ลองใหม่ หรือทักไลน์ร้าน'); }
+}
 (function(){
   const p = new URLSearchParams(location.search);
-  if(p.get('v') === 'hist') openHist();
+  if(p.get('ref')) deepRef(p.get('ref'));
+  else if(p.get('v') === 'hist') openHist();
   else if(p.get('v') === 'calc') openCalc();
   else if(p.get('new')) startBooking();
   else if(['weight','width','length','height'].some(k=>p.has(k))) startBooking();

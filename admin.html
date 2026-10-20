@@ -30,6 +30,8 @@ input,select{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-
 .dv .ms{color:#fff;padding:40px 12px}
 @media print{body>*:not(#dv){display:none!important}.dv{position:static;display:block;background:#fff}.dv .bar,.dv .ms{display:none}.dv .bd{padding:0;overflow:visible}.dv .bd img{width:100%;box-shadow:none}}
 .sc{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px}.sc label{display:flex;gap:6px;align-items:center}.sc input{width:auto;padding:0}.bi{grid-column:1/-1;font-size:13.5px;color:var(--soft)}
+.rs{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}.rs .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.rs .st{font-size:13.5px;padding:8px 10px;border-radius:10px;margin-top:8px}
+.rs .rn{display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13.5px;color:var(--soft)}.rs .rn input{width:auto;padding:0;margin-top:3px}.rs .lg{color:var(--soft);font-size:13px;white-space:pre-wrap;margin-top:10px}
 </style></head><body>
 <div class="wrap" id="login"><div class="box" style="max-width:380px;margin:12vh auto 0"><h1>หลังบ้านการจอง</h1><p style="color:var(--soft)">BS Express — สำหรับเจ้าหน้าที่</p>
 <input id="pw" type="password" placeholder="รหัสผ่านแอดมิน" autocomplete="current-password"><div id="err"></div><button class="btn" style="width:100%" onclick="login()">เข้าสู่ระบบ</button></div></div>
@@ -67,9 +69,10 @@ function qwRow(o,br,date){
 }
 const COL={'รอร้านยืนยัน':['#9A6B00','#FFF4D6'],'ยืนยันแล้ว · รอเลขบิล':['#1D5FBF','#E6F0FD'],'รอรถเข้ารับ':['#6B4FBB','#EFEAFB'],'รับพัสดุแล้ว':['#1F7A4D','#E6F4EC'],'ยกเลิก':['#667085','#EEF0F3']};
 const SLIP={'':['สลิปรอตรวจ','#9A6B00','#FFF4D6'],'ผ่าน':['สลิปถูกต้อง','#1F7A4D','#E6F4EC'],'ไม่ผ่าน':['สลิปไม่ถูกต้อง','#B5502E','#FDECE7']};
-const BI={},OCR_AUTO=false; // OCR_AUTO=true = อ่านเลขแทรคจากรูปบิลให้อัตโนมัติ (ตอนนี้ปิด ให้กรอกเอง)
+const BI={},OCR_AUTO=true; // OCR_AUTO=true = เลือกรูปบิลแล้วอ่านเลขแทรคขึ้นช่องเลขบิลให้เอง (เจ้าหน้าที่ตรวจเลขแล้วกดบันทึกเอง) / false = ปิด ให้กรอกเอง
 const fmtD=v=>{if(!/^\d{4}-\d\d-\d\dT/.test(String(v||'')))return v;const t=new Date(new Date(v).getTime()+7*36e5),p=n=>String(n).padStart(2,'0');return p(t.getUTCDate())+'/'+p(t.getUTCMonth()+1)+'/'+t.getUTCFullYear()}; // ชีตแปลงวันที่รับเป็นวันที่ -> แสดงเป็น วว/ดด/ปปปป
-const PAID='ชำระแล้ว',UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก',SLP=o=>o.slip&&!o.slipCheck&&o.status!=='ยกเลิก'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว)
+const PAID='ชำระแล้ว',RCV=o=>/ปลายทาง/.test(o.payment||''),UNP=o=>o.bill&&o.paid!==PAID&&o.status!=='ยกเลิก'&&!RCV(o),SLP=o=>o.slip&&!o.slipCheck&&o.status!=='ยกเลิก',
+  RSP=o=>(o.rsState==='รอลูกค้าตอบ'||o.rsState==='ลูกค้าขอวันอื่น')&&o.status!=='ยกเลิก'&&o.status!=='รับพัสดุแล้ว'; // ยังไม่ชำระ = ออกบิลแล้วแต่ยังไม่ติ๊กชำระ (รวมที่รับพัสดุแล้ว) / ไม่นับออเดอร์ "ผู้รับจ่ายปลายทาง" เพราะผู้ส่งไม่ต้องจ่าย
 function shrink(f,mx=1400){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{const k=Math.min(1,mx/Math.max(i.naturalWidth,i.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(i.naturalWidth*k);c.height=Math.round(i.naturalHeight*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.8))};i.onerror=no;i.src=u})}
 // ===== อ่านเลขพัสดุจากรูปบิล (Tesseract.js โหลดเมื่อเลือกรูปครั้งแรก) =====
 let OCRW;
@@ -101,8 +104,8 @@ async function loadOrders(first){
   try{
     const j=await api({action:'list'});if(!j.ok)throw new Error(j.error);
     const had=new Set(D.map(o=>o.ref)),nw=D.length?j.orders.filter(o=>!had.has(o.ref)).length:0;D=j.orders;ST=j.statuses;sessionStorage.setItem('bsa',T);$('login').hidden=true;$('app').hidden=false;
-    const old=!ST.includes('รอรถเข้ารับ');$('warn').hidden=!old;
-    if(old)$('warn').textContent='หลังบ้าน (Apps Script) ยังเป็นโค้ดเก่า — ต้อง Deploy → New version ก่อน ไม่งั้นการติ๊กตรวจสลิป/ชำระเงินและรูปบิลจะไม่ถูกบันทึก';
+    const old=!ST.includes('รอรถเข้ารับ')||!(j.ver>=3);$('warn').hidden=!old;
+    if(old)$('warn').textContent='หลังบ้าน (Apps Script) ยังเป็นโค้ดเก่า — ต้อง Deploy → New version ก่อน ไม่งั้นการตรวจสลิป/ชำระเงิน รูปบิล เลื่อนวันรับ และชื่อคนรถจะไม่ถูกบันทึก';
     render();$('ts').textContent='อัปเดตล่าสุด '+new Date().toLocaleTimeString('th-TH')+' · '+D.length+' ออเดอร์'+(nw?' · ใหม่ '+nw+' รายการ':'');
   }catch(e){
     const bad=e.message==='unauthorized';
@@ -111,53 +114,113 @@ async function loadOrders(first){
   }
   rb.disabled=false;rb.textContent='รีเฟรช';
 }
-function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):F==='slip'?SLP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone].join(' ').toLowerCase().includes(q)))}
+function shown(){const q=$('q').value.trim().toLowerCase();return D.filter(o=>(F==='all'||(F==='unpaid'?UNP(o):F==='slip'?SLP(o):F==='rs'?RSP(o):o.status===F))&&(!q||[o.ref,o.sender,o.receiver,o.pickupPhone,o.bill].join(' ').toLowerCase().includes(q)))}
 function imgs(u,l){return String(u||'').split('\n').filter(Boolean).map((x,i)=>{const m=/\/d\/([^/]+)/.exec(x);return m?'<a href="'+esc(x)+'" target="_blank" rel="noopener"><img loading="lazy" src="https://drive.google.com/thumbnail?id='+m[1]+'&sz=w300" alt="">'+l+(i?i+1:'')+'</a>':''}).join('')}
+// ===== ฉบับร่างที่พิมพ์/เลือกค้างไว้ — กันหายตอนวาดการ์ดใหม่ (ติ๊กช่องอื่น/รีเฟรช) แล้วลบทิ้งหลังบันทึกสำเร็จ =====
+const DR={},DK={b:1,dn:1,dp:1,rd:1,rr:1,rn:1,s:1};
+const dkey=e=>{for(const k in e.dataset)if(DK[k])return k+':'+e.dataset[k];return''};
+const dclear=(r,ks)=>ks.forEach(k=>delete DR[k+':'+r]);
+['input','change'].forEach(ev=>document.addEventListener(ev,e=>{const k=dkey(e.target);if(k)DR[k]=e.target.type==='checkbox'?e.target.checked:e.target.value}));
+// ===== เลื่อนวันรับ / ชื่อคนรถ =====
+const trkOf=o=>!/มาส่งเอง/.test(o.payer||'')&&o.status!=='ยกเลิก'; // ออเดอร์ที่มีรถไปรับ (ไม่ใช่มาส่งเองที่จุดรับ)
+const isoLocal=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const tmrISO=()=>{const d=new Date();d.setDate(d.getDate()+1);return isoLocal(d)};
+const toBE=iso=>{const p=iso.split('-');return p[2]+'/'+p[1]+'/'+(+p[0]+543)}; // 2026-10-22 -> 22/10/2569 (รูปแบบเดียวกับที่ฟอร์มจองเก็บ)
+function rsNote(o){
+  const nd=esc(o.newDate),rr=esc(o.rsReason);
+  return o.rsState==='รอลูกค้าตอบ'?['#7A5200','#FFF4D6','ร้านเสนอเลื่อนเป็น <b>'+nd+'</b> (เหตุผล: '+rr+') — รอลูกค้ากดตอบที่หน้าสถานะ']
+    :o.rsState==='ลูกค้าขอวันอื่น'?['#B5502E','#FDECE7','ลูกค้าไม่สะดวกวัน '+nd+' และขอวันอื่น — ติดต่อลูกค้า แล้วเสนอวันใหม่ด้านล่าง']
+    :o.rsState==='ตกลงแล้ว'?['#1F7A4D','#E6F4EC','เลื่อนวันรับแล้ว (ลูกค้าตกลง)']:null}
+function rsBlock(o,R){
+  if(!trkOf(o)||o.status==='รับพัสดุแล้ว')return '';
+  const n=rsNote(o),pend=o.rsState==='รอลูกค้าตอบ';
+  return '<div class="rs"><b>เลื่อนวันรับ</b> <span style="color:var(--soft)">วันรับปัจจุบัน '+esc(fmtD(o.pickupDate)||'-')+'</span>'+
+    (n?'<div class="st" style="color:'+n[0]+';background:'+n[1]+'">'+n[2]+'</div>':'')+
+    '<div class="row"><input type="date" data-rd="'+R+'" min="'+tmrISO()+'"><input data-rr="'+R+'" placeholder="เหตุผล (ลูกค้าจะเห็น)" maxlength="200"></div>'+
+    '<label class="rn"><input type="checkbox" data-rn="'+R+'"> ลูกค้าตกลงแล้ว (คุยทางโทร/แชทแล้ว) เปลี่ยนวันทันที ไม่ต้องรอลูกค้ากดตอบ</label>'+
+    '<div class="row"><button class="btn" data-rs="'+R+'">เลื่อนวันรับ</button>'+(pend?'<button class="btn g" data-rc="'+R+'">ถอนข้อเสนอ</button>':'')+'</div>'+
+    (pend?'<div class="row"><button class="btn g" data-rm="'+R+'" style="grid-column:1/-1">คัดลอกข้อความส่งลูกค้าทาง LINE (พร้อมลิงก์ตอบ)</button></div>':'')+
+    (o.rsLog?'<div class="lg">'+esc(o.rsLog)+'</div>':'')+'</div>'}
+function driverHtml(o,R){
+  if(!trkOf(o))return '';const p=pNP(o.driver);
+  return '<div class="bi">คนรถที่จะเข้ารับ — ลูกค้าจะเห็นชื่อและทะเบียนตอนสถานะ “รอรถเข้ารับ”</div><input data-dn="'+R+'" placeholder="ชื่อคนรถ (ชื่อเล่น)" value="'+esc(p[0])+'"><input data-dp="'+R+'" placeholder="ทะเบียนรถ" value="'+esc(p[1])+'">'}
 function card(o){
-  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?[/รถมารับ/.test(o.payment||'')?'ชำระแล้ว · คนรถไม่ต้องเก็บเงิน':'ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',fmtD(o.pickupDate)],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['แจ้งโอน',String(o.payLog||'').replace(/\n/g,' | ')],['ค่าพัสดุ (COD)',o.codAmt?'เก็บ COD '+Number(o.codAmt).toLocaleString()+' บาท จากผู้รับ':''],['หมายเหตุ',o.note]].filter(r=>r[1]);
-  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp,o.codAmt?['COD '+Number(o.codAmt).toLocaleString(),'#B5502E','#FDECE7']:null].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
+  const c=COL[o.status]||COL['รอร้านยืนยัน'],R=esc(o.ref),sp=o.slip&&!(o.slipCheck==='ผ่าน'&&o.paid===PAID)?SLIP[o.slipCheck||'']:null,pp=o.paid===PAID?[/รถมารับ/.test(o.payment||'')?'ชำระแล้ว · คนรถไม่ต้องเก็บเงิน':'ชำระแล้ว','#1F7A4D','#E6F4EC']:UNP(o)?['ยังไม่ชำระ','#9A6B00','#FFF4D6']:null,kv=[['ผู้ส่ง',o.sender],['เบอร์ติดต่อ',o.pickupPhone],['รับที่',o.pickupAddress],['วันที่รับ',fmtD(o.pickupDate)],['คนรถ',o.driver],['รูปแบบ',o.payer],['ผู้รับ',o.receiver],['ที่อยู่ผู้รับ',o.receiverAddress],['ปลายทาง',o.dest],['พัสดุ',o.itemsDetail||o.items],['ลักษณะ',o.traits],['ชำระเงิน',o.payment],['แจ้งโอน',String(o.payLog||'').replace(/\n/g,' | ')],['ค่าพัสดุ (COD)',o.codAmt?'เก็บ COD '+Number(o.codAmt).toLocaleString()+' บาท จากผู้รับ':''],['หมายเหตุ',o.note]].filter(r=>r[1]);
+  return '<div class="o"><div class="hd" data-t="'+R+'"><div class="r1"><b>'+R+'</b><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end"><span class="pill" style="color:'+c[0]+';background:'+c[1]+'">'+esc(o.status)+'</span>'+[sp,pp,RSP(o)?[o.rsState==='รอลูกค้าตอบ'?'รอลูกค้าตอบวันใหม่':'ลูกค้าขอวันอื่น',o.rsState==='รอลูกค้าตอบ'?'#9A6B00':'#B5502E',o.rsState==='รอลูกค้าตอบ'?'#FFF4D6':'#FDECE7']:null,o.codAmt?['COD '+Number(o.codAmt).toLocaleString(),'#B5502E','#FDECE7']:null].map(p=>p?'<span class="pill" style="color:'+p[1]+';background:'+p[2]+'">'+p[0]+'</span>':'').join('')+'</span></div><div class="sub"><span>'+esc(o.receiver||'-')+'</span><span>'+(o.total?Number(o.total).toLocaleString()+' บาท':'')+'</span></div><div class="sub"><span>'+when(o.createdAt)+'</span><span>'+esc(o.payment||'')+'</span></div></div>'+
   '<div class="dt" '+(OPEN[o.ref]?'':'hidden')+'><div class="kv">'+kv.map(r=>'<span>'+r[0]+'</span><b>'+esc(r[1])+'</b>').join('')+'</div>'+
-  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ถูกต้อง</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ถูกต้อง</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ · ไม่ถูกต้อง = ให้ลูกค้าส่งสลิปใหม่)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+'> บิลนี้ชำระแล้ว</label></div>')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การรับพัสดุ</b><label><input type="checkbox" data-pk="'+R+'"'+(o.status===ST[3]?' checked':'')+'> รถเข้ารับพัสดุแล้ว</label></div>')+
-  '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล" value="'+esc(o.bill)+'">'+
-  '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label><div class="bi" data-m="'+R+'"></div>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div></div></div>';
+  '<div class="im">'+imgs(o.slip,'สลิป')+imgs(o.photos,'รูป')+'</div>'+(o.slip?'<div class="sc"><b>ตรวจสลิป</b><label><input type="checkbox" data-sc="'+R+'" value="ผ่าน"'+(o.slipCheck==='ผ่าน'?' checked':'')+'> ถูกต้อง</label><label><input type="checkbox" data-sc="'+R+'" value="ไม่ผ่าน"'+(o.slipCheck==='ไม่ผ่าน'?' checked':'')+'> ไม่ถูกต้อง</label><span style="color:var(--soft)">(ไม่ติ๊ก = รอตรวจ · ไม่ถูกต้อง = เอา “ชำระแล้ว” ออก และให้ลูกค้าส่งสลิปใหม่)</span></div>':'')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การชำระเงิน</b><label><input type="checkbox" data-pd="'+R+'"'+(o.paid===PAID?' checked':'')+(o.slipCheck==='ไม่ผ่าน'?' disabled':'')+'> บิลนี้ชำระแล้ว</label>'+(o.slipCheck==='ไม่ผ่าน'?'<span style="color:var(--warn)">สลิปยังไม่ถูกต้อง จึงติ๊กไม่ได้ (รอลูกค้าส่งสลิปใหม่)</span>':'')+'</div>')+(o.status==='ยกเลิก'?'':'<div class="sc"><b>การรับพัสดุ</b><label><input type="checkbox" data-pk="'+R+'"'+(o.status===ST[3]?' checked':'')+'> รถเข้ารับพัสดุแล้ว</label></div>')+
+  '<div class="ctl"><select data-s="'+R+'">'+ST.map(s=>'<option'+(s===o.status?' selected':'')+'>'+s+'</option>').join('')+'</select><input data-b="'+R+'" placeholder="เลขบิล / เลขแทรค" value="'+esc(o.bill)+'">'+driverHtml(o,R)+
+  '<label class="bi">รูปบิลให้ลูกค้า <input type="file" accept="image/*" data-bi="'+R+'"></label><div class="bi" data-m="'+R+'"></div>'+(o.billImg?'<div class="im" style="grid-column:1/-1">'+imgs(o.billImg,'บิล')+'</div>':'')+'<button class="btn" data-save="'+R+'">บันทึก</button><button class="btn g" data-copy="'+R+'">คัดลอกสรุป (คีย์ Quickwin)</button></div>'+rsBlock(o,R)+'</div></div>';
 }
 function render(){
-  $('chips').innerHTML=['all'].concat(ST,'unpaid','slip').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s==='slip'?'สลิปรอตรวจ '+D.filter(SLP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
-  const dr={};document.querySelectorAll('[data-b]').forEach(i=>{const o=D.find(x=>x.ref===i.dataset.b);if(o&&i.value!==String(o.bill||''))dr[i.dataset.b]=i.value}); // เก็บเลขบิลที่กรอกค้างไว้
+  $('chips').innerHTML=['all'].concat(ST,'unpaid','slip','rs').map(s=>'<button class="chip'+(F===s?' on':'')+'" data-f="'+s+'">'+(s==='all'?'ทั้งหมด '+D.length:s==='unpaid'?'ยังไม่ชำระ '+D.filter(UNP).length:s==='slip'?'สลิปรอตรวจ '+D.filter(SLP).length:s==='rs'?'เลื่อนวัน · รอติดตาม '+D.filter(RSP).length:s+' '+D.filter(o=>o.status===s).length)+'</button>').join('');
   const a=shown();$('list').innerHTML=a.length?a.map(card).join(''):'<p class="empty">ไม่มีออเดอร์</p>';
-  Object.keys(dr).forEach(r=>{const i=document.querySelector('[data-b="'+r+'"]');if(i)i.value=dr[r]});
+  document.querySelectorAll('#list [data-b],#list [data-dn],#list [data-dp],#list [data-rd],#list [data-rr],#list [data-rn],#list [data-s]').forEach(e=>{const k=dkey(e);if(k in DR){if(e.type==='checkbox')e.checked=!!DR[k];else e.value=DR[k]}}); // คืนค่าที่พิมพ์/เลือกค้างไว้ (เลขบิล คนรถ วันเลื่อน เหตุผล สถานะ)
   Object.keys(BI).forEach(r=>{const m=document.querySelector('[data-m="'+r+'"]');if(m)m.textContent='เลือกรูปบิลแล้ว ✓ (กด “บันทึก” เพื่ออัปโหลด)'});
 }
 document.addEventListener('click',async e=>{
-  const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]');
+  const t=e.target,f=t.closest('[data-f]'),h=t.closest('[data-t]'),sv=t.closest('[data-save]'),cp=t.closest('[data-copy]'),rs=t.closest('[data-rs]'),rc=t.closest('[data-rc]'),rm=t.closest('[data-rm]');
   if(f){F=f.dataset.f;render()}
-  else if(sv){const r=sv.dataset.save,b=document.querySelector('[data-b="'+r+'"]').value.trim();let s=document.querySelector('[data-s="'+r+'"]').value;const hasImg=!!(BI[r]||(D.find(x=>x.ref===r)||{}).billImg);if(b&&hasImg&&(s===ST[0]||s===ST[1]))s=ST[2]; // ใส่เลขบิล + รูปบิลแล้ว เลื่อนเป็น "รอรถเข้ารับ" ให้เอง
-    
+  else if(sv){const r=sv.dataset.save,o=D.find(x=>x.ref===r),q=k=>document.querySelector('[data-'+k+'="'+r+'"]'),b=q('b').value.trim(),dnE=q('dn'),dpE=q('dp'),dn=dnE?dnE.value.trim():'',dp=dpE?dpE.value.trim():'';
+    let s=q('s').value;const hasImg=!!(BI[r]||o.billImg);
+    if(b&&hasImg&&(s===ST[0]||s===ST[1]))s=ST[2]; // มีทั้งเลขบิลและรูปบิล -> "รอรถเข้ารับ" ให้เอง (เจ้าหน้าที่ตรวจเลขแล้วกดบันทึก)
+    const w=[]; // เตือนก่อนบันทึก (ไม่บล็อก ให้เจ้าหน้าที่ตัดสินใจเอง)
+    if(s!==o.status){
+      if((s===ST[2]||s===ST[3])&&!b)w.push('• ยังไม่ได้กรอกเลขบิล/เลขแทรค');
+      if(s===ST[2]){
+        if(dnE&&!dn)w.push('• ยังไม่ได้กรอกชื่อคนรถ (ลูกค้าจะไม่เห็นว่าใครมารับ)');
+        if(o.slipCheck==='ไม่ผ่าน')w.push('• สลิปยังไม่ถูกต้อง');
+        else if(/ชำระก่อน/.test(o.payment||'')&&o.slipCheck!=='ผ่าน')w.push('• ออเดอร์ชำระก่อนเรียกรถ แต่สลิปยังไม่ผ่านการตรวจ')}}
+    if(w.length&&!confirm(w.join('\n')+'\n\nบันทึกต่อไหม?'))return;
     sv.disabled=true;sv.textContent='กำลังบันทึก...';
-    try{const j=await api({action:'update',ref:r,status:s,bill:b,billImgData:BI[r]||''});if(!j.ok)throw new Error(j.error);const o=D.find(x=>x.ref===r);o.status=s;o.bill=b;if(j.billImg)o.billImg=j.billImg;delete BI[r];OPEN[r]=1;render()}
+    try{const j=await api({action:'update',ref:r,status:s,bill:b,billImgData:BI[r]||'',driver:dnE?(dn||dp?dn+' • '+dp:''):undefined});if(!j.ok)throw new Error(j.error);o.status=s;o.bill=b;if(j.billImg)o.billImg=j.billImg;Object.assign(o,j.patch||{});delete BI[r];dclear(r,['b','s','dn','dp']);OPEN[r]=1;render()}
     catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);sv.disabled=false;sv.textContent='บันทึก'}}
+  else if(rs){const r=rs.dataset.rs,o=D.find(x=>x.ref===r),q=k=>document.querySelector('[data-'+k+'="'+r+'"]'),d=q('rd').value,why=q('rr').value.trim(),now=q('rn').checked;
+    if(!d){alert('เลือกวันที่รับใหม่ก่อน');return}
+    if(d<tmrISO()){alert('วันที่รับใหม่ต้องเป็นวันพรุ่งนี้เป็นต้นไป');return}
+    if(new Date(d+'T00:00:00').getDay()===0){alert('วันอาทิตย์ไม่รับพัสดุ เลือกวันอื่น');return}
+    const nd=toBE(d);if(nd===fmtD(o.pickupDate)){alert('เป็นวันเดียวกับวันรับเดิม');return}
+    if(!why){alert('กรอกเหตุผลที่ลูกค้าจะเห็น');return}
+    if(!confirm(now?'เปลี่ยนวันรับเป็น '+nd+' ทันที (ลูกค้าตกลงแล้ว)?':'เสนอให้ลูกค้าเลื่อนวันรับเป็น '+nd+'?\nวันรับจะยังไม่เปลี่ยนจนกว่าลูกค้าจะกดตกลงที่หน้าสถานะ'))return;
+    rs.disabled=true;rs.textContent='กำลังบันทึก...';
+    try{const j=await api({action:'resched',ref:r,mode:now?'now':'offer',newDate:nd,reason:why});if(!j.ok)throw new Error(j.error);Object.assign(o,j.patch||{});dclear(r,['rd','rr','rn']);OPEN[r]=1;render()}
+    catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);rs.disabled=false;rs.textContent='เลื่อนวันรับ'}}
+  else if(rc){const r=rc.dataset.rc,o=D.find(x=>x.ref===r);if(!confirm('ถอนข้อเสนอเลื่อนวันรับของ '+r+'?'))return;
+    rc.disabled=true;try{const j=await api({action:'resched',ref:r,mode:'clear'});if(!j.ok)throw new Error(j.error);Object.assign(o,j.patch||{});OPEN[r]=1;render()}
+    catch(x){alert('ถอนไม่สำเร็จ: '+x.message);rc.disabled=false}}
+  else if(rm){const o=D.find(x=>x.ref===rm.dataset.rm),base=location.origin+location.pathname.replace(/[^/]*$/,'');
+    const msg='เรียนลูกค้า BS Express ขอเลื่อนวันเข้ารับพัสดุ (เลขที่จอง '+o.ref+')\nจากวันที่ '+fmtD(o.pickupDate)+' เป็นวันที่ '+o.newDate+'\nเหตุผล: '+o.rsReason+'\n\nรบกวนกดตอบที่ลิงก์นี้ (ตกลง / ขอวันอื่น / ยกเลิก):\n'+base+'?ref='+encodeURIComponent(o.ref);
+    navigator.clipboard.writeText(msg).then(()=>{rm.textContent='คัดลอกแล้ว ✓ นำไปวางในแชท LINE ลูกค้า'})}
   else if(cp){const o=D.find(x=>x.ref===cp.dataset.copy);navigator.clipboard.writeText(o.text||'').then(()=>{cp.textContent='คัดลอกแล้ว ✓'})}
   else if(h&&!t.closest('input,select,button')){const r=h.dataset.t;OPEN[r]=!OPEN[r];h.nextElementSibling.hidden=!OPEN[r]}
 });
 document.addEventListener('change',async e=>{
   const t=e.target,r=t.dataset.sc||t.dataset.bi||t.dataset.pd||t.dataset.pk;if(!r)return;const o=D.find(x=>x.ref===r);
-  if(t.dataset.sc){const v=t.checked?t.value:'',pd=v==='ผ่าน'?PAID:undefined,prev=o.slipCheck||'';
+  if(t.dataset.sc){const v=t.checked?t.value:'',prev=o.slipCheck||'',
+      pd=v==='ผ่าน'?PAID:(v==='ไม่ผ่าน'||prev==='ผ่าน')?'':undefined; // ผ่าน -> ชำระแล้ว / ไม่ผ่าน หรือเลิกติ๊กถูกต้อง -> ยังไม่ได้รับเงินทางสลิป จึงเอา "ชำระแล้ว" ออกด้วย
     let st; // ถูกต้อง -> ยืนยันแล้ว · รอเลขบิล / ไม่ถูกต้อง -> รอร้านยืนยัน (ลูกค้าเห็นให้ส่งสลิปใหม่) / เอาติ๊กออก -> รอร้านยืนยัน
     if(v==='ผ่าน'){if(o.status===ST[0]||(o.status===ST[4]&&prev==='ไม่ผ่าน'))st=ST[1]}
     else if(v==='ไม่ผ่าน'){if(o.status===ST[1])st=ST[0]}
     else if((prev==='ผ่าน'&&o.status===ST[1])||(prev==='ไม่ผ่าน'&&o.status===ST[4]))st=ST[0];
     document.querySelectorAll('[data-sc="'+r+'"]').forEach(x=>{if(x!==t)x.checked=false});
-    try{const j=await api({action:'update',ref:r,slipCheck:v,paid:pd,status:st});if(!j.ok)throw new Error(j.error);o.slipCheck=v;if(pd)o.paid=pd;if(st)o.status=st;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
-  else if(t.dataset.pd){const v=t.checked?PAID:'';try{const j=await api({action:'update',ref:r,paid:v});if(!j.ok)throw new Error(j.error);o.paid=v;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
-  else if(t.dataset.pk){const st=t.checked?ST[3]:ST[2];try{const j=await api({action:'update',ref:r,status:st});if(!j.ok)throw new Error(j.error);o.status=st;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
+    try{const j=await api({action:'update',ref:r,slipCheck:v,paid:pd,status:st});if(!j.ok)throw new Error(j.error);o.slipCheck=v;if(pd!==undefined)o.paid=pd;if(st)o.status=st;Object.assign(o,j.patch||{});OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
+  else if(t.dataset.pd){
+    if(t.checked&&o.slipCheck==='ไม่ผ่าน'){alert('สลิปยังไม่ถูกต้อง จึงติ๊กชำระแล้วไม่ได้\nรอลูกค้าส่งสลิปใหม่ หรือถ้าลูกค้าเปลี่ยนไปจ่ายวิธีอื่น ให้เอาติ๊ก “ไม่ถูกต้อง” ออกก่อน');t.checked=false;return}
+    const v=t.checked?PAID:'';try{const j=await api({action:'update',ref:r,paid:v});if(!j.ok)throw new Error(j.error);o.paid=v;Object.assign(o,j.patch||{});OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
+  else if(t.dataset.pk){
+    if(t.checked&&!o.bill&&!confirm('ยังไม่มีเลขบิล/เลขแทรค ยืนยันว่ารถเข้ารับพัสดุแล้ว?')){t.checked=false;return}
+    const st=t.checked?ST[3]:(o.bill?ST[2]:ST[1]); // เอาติ๊กออก: มีเลขบิลแล้วกลับไป "รอรถเข้ารับ" / ยังไม่มีเลขบิลกลับไป "ยืนยันแล้ว · รอเลขบิล"
+    try{const j=await api({action:'update',ref:r,status:st});if(!j.ok)throw new Error(j.error);o.status=st;OPEN[r]=1;render()}catch(x){alert('บันทึกไม่สำเร็จ: '+x.message);t.checked=!t.checked}}
   else if(t.files[0]){const f=t.files[0],say=h=>{const m=document.querySelector('[data-m="'+r+'"]');if(m)m.innerHTML=h};
     try{BI[r]=await shrink(f)}catch(x){alert('อ่านรูปไม่ได้');return}
     if(!OCR_AUTO){say('เลือกรูปบิลแล้ว ✓ กรอกเลขแทรคในช่องเลขบิล แล้วกด “บันทึก” (สถานะจะเปลี่ยนเป็น “รอรถเข้ารับ” ให้เอง)');return}
     say('เลือกรูปบิลแล้ว ✓ กำลังอ่านเลขพัสดุจากรูป… (ครั้งแรกโหลดตัวอ่านเลขประมาณ 5 MB)');
     try{const n=await readTrack(f),i=document.querySelector('[data-b="'+r+'"]');
-      if(n&&i){i.value=n;say('อ่านเลขพัสดุได้ <b>'+n+'</b> กรอกในช่องเลขบิลให้แล้ว — ตรวจให้ตรงกับบิลก่อนกด “บันทึก”')}
+      if(n&&i){const cur=i.value.trim();
+        if(!cur||cur===n){i.value=n;DR['b:'+r]=n;say('อ่านเลขพัสดุได้ <b>'+esc(n)+'</b> ใส่ในช่องเลขบิลให้แล้ว — ตรวจให้ตรงกับบิล แล้วกด “บันทึก” (สถานะจะเปลี่ยนเป็น “รอรถเข้ารับ” ให้เอง)')}
+        else say('อ่านเลขจากรูปได้ <b>'+esc(n)+'</b> แต่ในช่องเลขบิลมี <b>'+esc(cur)+'</b> อยู่แล้ว จึงไม่ได้เขียนทับ — ตรวจว่าเลขไหนถูก แล้วกด “บันทึก”')}
       else say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขพัสดุจากรูปไม่ได้ — กรอกเลขเอง แล้วกด “บันทึก”')}
-    catch(x){say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขอัตโนมัติไม่ได้ ('+x.message+') — กรอกเลขเอง แล้วกด “บันทึก”')}}
+    catch(x){say('เลือกรูปบิลแล้ว ✓ แต่อ่านเลขอัตโนมัติไม่ได้ ('+esc(x.message)+') — กรอกเลขเอง แล้วกด “บันทึก”')}}
 });
 $('q').addEventListener('input',render);
 $('pw').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
